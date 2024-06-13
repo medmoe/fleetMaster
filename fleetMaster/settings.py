@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Third party apps
-    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'rest_framework',
     # My apps
     'accounts',
@@ -95,7 +95,7 @@ else:
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': config("DB_NAME"),
             "USER": config("DB_USER"),
-            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "PASSWORD": config("DB_PASSWORD"),
             "HOST": config("HOST"),
             "PORT": config("PORT"),
         }
