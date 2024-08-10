@@ -3,10 +3,10 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 
-from .models import UserProfile
 from .factories import UserProfileFactory
+from .models import UserProfile
 
 
 class SignUpTestCases(APITestCase):
@@ -108,27 +108,44 @@ class LogoutTestCases(APITestCase):
         self.assertTrue(BlacklistedToken.objects.filter(token__token=refresh.value).exists())
 
 
-class CustomTokenRefreshViewTests(APITestCase):
+class TokenVerificationTests(APITestCase):
     def setUp(self) -> None:
         self.client = APIClient()
-        self.url = reverse('token_refresh')
+        self.url = reverse('verify_token')
         self.user = User.objects.create_user(username='testuser', password='password')
+
+    def test_valid_access_token(self):
+        access = str(AccessToken.for_user(self.user))
+        self.client.cookies['access'] = access
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_invalid_access_token(self):
+        self.client.cookies['access'] = "invalid_access_token"
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_no_access_token(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_successful_token_refresh(self):
         refresh = str(RefreshToken.for_user(self.user))
         self.client.cookies['refresh'] = refresh
-        response = self.client.post(self.url)
+        self.client.cookies['access'] = "access_token"
+        response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('access', response.data)
+        self.assertIn('access', response.cookies)
         self.assertTrue('access' in response.cookies)
 
     def test_missing_refresh_token(self):
-        response = self.client.post(self.url)
+        response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_invalid_refresh_token(self):
         self.client.cookies['refresh'] = 'invalid_refresh_token'
+        self.client.cookies['access'] = "access_token"
 
-        response = self.client.post(self.url)
+        response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(response.data['detail'], 'Token is invalid or expired')

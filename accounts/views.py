@@ -3,7 +3,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .serializers import UserProfileSerializer, CustomTokenObtainPairSerializer
@@ -55,19 +55,24 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         return response
 
 
-class CustomTokenRefreshView(TokenRefreshView):
-    def post(self, request: Request, *args, **kwargs) -> Response:
+class TokenVerificationView(TokenRefreshView):
+    def get(self, request: Request, *args, **kwargs) -> Response:
+        access_token = request.COOKIES.get("access", None)
         refresh_token = request.COOKIES.get('refresh', None)
-        if refresh_token is None:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-        serializer = self.get_serializer(data={'refresh': refresh_token})
-        try:
-            serializer.is_valid(raise_exception=True)
-            response = Response(serializer.validated_data, status=status.HTTP_200_OK)
-            response.set_cookie(key='access', value=response.data['access'], httponly=True, samesite='Lax')
-            return response
-        except TokenError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-        except Exception as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        if access_token:
+            try:
+                AccessToken(access_token)
+                return Response({"message": "User is authenticated"}, status=status.HTTP_200_OK)
+            except TokenError:
+                if refresh_token:
+                    try:
+                        refresh = RefreshToken(refresh_token)
+                        new_access_token = str(refresh.access_token)
+                        response = Response({"message": "Access token refreshed"}, status=status.HTTP_200_OK)
+                        response.set_cookie(key="access", value=new_access_token, httponly=True, samesite="Lax")
+                        return response
+                    except TokenError as e:
+                        return Response({"detail": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+                else:
+                    return Response({"message": "Access token expired and no refresh token given."}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({"message": "No tokens provided"}, status=status.HTTP_400_BAD_REQUEST)

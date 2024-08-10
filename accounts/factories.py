@@ -34,5 +34,3 @@ class UserProfileFactory(DjangoModelFactory):
     zip_code = Faker('zipcode')
     is_verified = Faker('boolean')
 
-
-
