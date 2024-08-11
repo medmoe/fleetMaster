@@ -44,6 +44,9 @@ INSTALLED_APPS = [
     'corsheaders',
     # My apps
     'accounts',
+    'vehicles',
+    'drivers',
+    'maintenance',
 ]
 
 MIDDLEWARE = [
