@@ -1,9 +1,5 @@
 from django.db import models
 
-# Create your models here.
-
-from django.db import models
-
 
 class VehicleTypeChoices(models.TextChoices):
     CAR = "CAR", "Car"
@@ -19,21 +15,22 @@ class StatusChoices(models.TextChoices):
 
 
 class Vehicle(models.Model):
-    registration_number = models.CharField(max_length=20, unique=True)
-    make = models.CharField(max_length=50)
-    model = models.CharField(max_length=50)
+    profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE)
+    registration_number = models.CharField(max_length=100, unique=True)
+    make = models.CharField(max_length=100)
+    model = models.CharField(max_length=100)
     year = models.PositiveIntegerField()
-    vin = models.CharField(max_length=17, unique=True)
-    color = models.CharField(max_length=30)
-    type = models.CharField(max_length=20, choices=VehicleTypeChoices.choices)
-    status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.ACTIVE)
+    vin = models.CharField(max_length=100, unique=True)
+    color = models.CharField(max_length=100)
+    type = models.CharField(max_length=100, choices=VehicleTypeChoices.choices)
+    status = models.CharField(max_length=100, choices=StatusChoices.choices, default=StatusChoices.ACTIVE)
     purchase_date = models.DateField()
     last_service_date = models.DateField()
     next_service_due = models.DateField()
     mileage = models.PositiveIntegerField()
-    fuel_type = models.CharField(max_length=20)
+    fuel_type = models.CharField(max_length=100)
     capacity = models.PositiveIntegerField()
-    insurance_policy_number = models.CharField(max_length=50)
+    insurance_policy_number = models.CharField(max_length=100)
     insurance_expiry_date = models.DateField()
     license_expiry_date = models.DateField()
     notes = models.TextField(blank=True, null=True)
