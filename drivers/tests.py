@@ -5,7 +5,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
-from accounts.factories import UserProfileFactory
+from accounts.factories import UserProfileFactory, UserProfile
 from vehicles.factories import VehicleFactory
 from .factories import DriverFactory
 from .models import Driver, EmploymentStatusChoices
@@ -67,3 +67,97 @@ class DriversListTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Driver.objects.count(), len(self.drivers) + 1)
         self.assertTrue(Driver.objects.filter(first_name=data["first_name"], last_name=data["last_name"], email=data["email"]))
+
+
+class DriverDetailTestCases(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_one = UserProfileFactory.create()
+        cls.user_two = UserProfileFactory.create()
+        cls.access_token = AccessToken.for_user(cls.user_one.user)
+        cls.vehicles_one = VehicleFactory.create_batch(size=3, profile=cls.user_one)
+        cls.drivers_one = DriverFactory.create_batch(size=2, profile=cls.user_one)
+        cls.vehicles_two = VehicleFactory.create_batch(size=3, profile=cls.user_two)
+        cls.drivers_two = DriverFactory.create_batch(size=2, profile=cls.user_two)
+        for driver in cls.drivers_one:
+            driver.vehicles.set(cls.vehicles_one)
+        for driver in cls.drivers_two:
+            driver.vehicles.set(cls.vehicles_two)
+
+        cls.data = {
+            "vehicles": [vehicle.id for vehicle in cls.vehicles_one],
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "johndoe_updated@example.com",  # Updated email
+            "phone_number": "+1234567890",
+            "licence_number": "D123456789",  # Updated licence number
+            "licence_expiry_date": datetime.date(2026, 12, 31).isoformat(),  # Updated expiry date
+            "date_of_birth": datetime.date(1985, 5, 20).isoformat(),
+            "address": "4567 Maple Avenue",  # Updated address
+            "city": "Los Angeles",
+            "state": "CA",
+            "zip_code": "90001",
+            "country": "USA",
+            "hire_date": datetime.date(2022, 1, 1).isoformat(),
+            "employment_status": EmploymentStatusChoices.INACTIVE,  # Updated employment status
+            "emergency_contact_name": "Jane Doe",
+            "emergency_contact_phone": "+0987654321",
+            "notes": "Updated driver information."  # Updated notes
+        }
+
+    def setUp(self):
+        self.client.cookies["access"] = self.access_token
+
+    def test_failed_driver_retrieval_with_unauthenticated_user(self):
+        self.client.cookies["access"] = None
+        response = self.client.get(reverse("driver-detail", args=[self.drivers_one[0].id]))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_failed_driver_retrieval_with_not_own_driver(self):
+        response = self.client.get(reverse("driver-detail", args=[self.drivers_two[0].id]))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_failed_retrieval_of_no_existing_driver(self):
+        response = self.client.get(reverse("driver-detail", args=["9999"]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_successful_retrieval_of_driver(self):
+        response = self.client.get(reverse("driver-detail", args=[self.drivers_one[0].id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        fields = ("first_name", "last_name", "email", "phone_number", "address")
+        for field in fields:
+            self.assertIn(field, response.data)
+            self.assertEqual(response.data[field], getattr(self.drivers_one[0], field))
+
+    def test_failed_driver_update_with_unauthenticated_user(self):
+        self.client.cookies["access"] = None
+        response = self.client.put(reverse("driver-detail", args=[self.drivers_one[0].id]), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_failed_driver_update_with_not_own_driver(self):
+        response = self.client.put(reverse("driver-detail", args=[self.drivers_two[0].id]), data={}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_failed_update_of_no_existing_driver(self):
+        response = self.client.put(reverse("driver-detail", args=["9999"]), data={}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_failed_update_with_invalid_data(self):
+        response = self.client.put(reverse("driver-detail", args=[self.drivers_one[0].id]), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_successful_update_of_driver(self):
+        self.data["profile"] = self.user_one.id
+        response = self.client.put(reverse("driver-detail", args=[self.drivers_one[0].id]), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        # Verify that all fields are updated correctly
+        updated_driver = Driver.objects.get(id=self.drivers_one[0].id)
+        for field in self.data:
+            if field == "vehicles":
+                self.assertEqual(list(updated_driver.vehicles.values_list('id', flat=True)), self.data[field])
+            elif isinstance(getattr(updated_driver, field), UserProfile):
+                self.assertEqual(getattr(updated_driver, field).id, self.data[field])
+            elif isinstance(getattr(updated_driver, field), datetime.date):
+                self.assertEqual(getattr(updated_driver, field).isoformat(), self.data[field])
+            else:
+                self.assertEqual(getattr(updated_driver, field), self.data[field])

@@ -24,7 +24,7 @@ class Driver(models.Model):
     state = models.CharField(max_length=100)
     zip_code = models.CharField(max_length=100)
     country = models.CharField(max_length=100)
-    profile_picture = models.ImageField(upload_to='media/profile_pics', null=True)
+    profile_picture = models.ImageField(upload_to='profile_pics/', null=True)
     hire_date = models.DateField()
     employment_status = models.CharField(max_length=100,
                                          choices=EmploymentStatusChoices.choices,
