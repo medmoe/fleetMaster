@@ -1,6 +1,5 @@
 from rest_framework import status
-from rest_framework.exceptions import NotFound
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -38,7 +37,7 @@ class DriversDetailView(APIView):
         try:
             return Driver.objects.get(id=pk)
         except Driver.DoesNotExist:
-            raise NotFound(detail="Driver does not exit.")
+            raise NotFound(detail="Driver does not exist.")
 
     def check_object_permissions(self, request, obj):
         for permission in self.get_permissions():
