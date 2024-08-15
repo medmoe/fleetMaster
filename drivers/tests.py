@@ -75,10 +75,10 @@ class DriverDetailTestCases(APITestCase):
         cls.user_one = UserProfileFactory.create()
         cls.user_two = UserProfileFactory.create()
         cls.access_token = AccessToken.for_user(cls.user_one.user)
-        cls.vehicles_one = VehicleFactory.create_batch(size=3, profile=cls.user_one)
-        cls.drivers_one = DriverFactory.create_batch(size=2, profile=cls.user_one)
-        cls.vehicles_two = VehicleFactory.create_batch(size=3, profile=cls.user_two)
-        cls.drivers_two = DriverFactory.create_batch(size=2, profile=cls.user_two)
+        cls.vehicles_one = VehicleFactory.create_batch(size=2, profile=cls.user_one)
+        cls.drivers_one = DriverFactory.create_batch(size=1, profile=cls.user_one)
+        cls.vehicles_two = VehicleFactory.create_batch(size=2, profile=cls.user_two)
+        cls.drivers_two = DriverFactory.create_batch(size=1, profile=cls.user_two)
         for driver in cls.drivers_one:
             driver.vehicles.set(cls.vehicles_one)
         for driver in cls.drivers_two:
@@ -161,3 +161,23 @@ class DriverDetailTestCases(APITestCase):
                 self.assertEqual(getattr(updated_driver, field).isoformat(), self.data[field])
             else:
                 self.assertEqual(getattr(updated_driver, field), self.data[field])
+
+    def test_failed_driver_delete_with_unauthenticated_user(self):
+        self.client.cookies["access"] = None
+        response = self.client.delete(reverse("driver-detail", args=[self.drivers_one[0].id]))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_failed_driver_delete_with_not_own_driver(self):
+        response = self.client.delete(reverse("driver-detail", args=[self.drivers_two[0].id]))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_failed_driver_delete_of_no_existing_driver(self):
+        response = self.client.delete(reverse("driver-detail", args=["9999"]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_successful_delete_of_driver(self):
+        response = self.client.delete(reverse("driver-detail", args=[self.drivers_one[0].id]))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        drivers = Driver.objects.filter(profile=self.user_one)
+        self.assertFalse(drivers)
+
