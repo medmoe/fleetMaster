@@ -44,6 +44,9 @@ INSTALLED_APPS = [
     'corsheaders',
     # My apps
     'accounts',
+    'vehicles',
+    'drivers',
+    'maintenance',
 ]
 
 MIDDLEWARE = [
@@ -187,3 +190,7 @@ CORS_ALLOW_HEADERS = [
 ]
 
 ALLOWED_HOSTS = ["*"]
+
+# media configuration
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
+MEDIA_URL = '/media/'

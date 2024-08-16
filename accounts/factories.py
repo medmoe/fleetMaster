@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from factory import Faker, SubFactory, LazyAttribute
+from factory import Faker, SubFactory
 from factory.django import DjangoModelFactory
 
 from .models import UserProfile
@@ -33,4 +33,3 @@ class UserProfileFactory(DjangoModelFactory):
     country = Faker('country')
     zip_code = Faker('zipcode')
     is_verified = Faker('boolean')
-
