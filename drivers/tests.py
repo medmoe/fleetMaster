@@ -47,8 +47,8 @@ class DriversListTestCases(APITestCase):
             "last_name": "Doe",
             "email": "johndoe@example.com",
             "phone_number": "+1234567890",
-            "licence_number": "D123456789",
-            "licence_expiry_date": datetime.date(2025, 12, 31).isoformat(),
+            "license_number": "D123456789",
+            "license_expiry_date": datetime.date(2025, 12, 31).isoformat(),
             "date_of_birth": datetime.date(1985, 5, 20).isoformat(),
             "address": "1234 Elm Street",
             "city": "New York",
@@ -89,8 +89,8 @@ class DriverDetailTestCases(APITestCase):
             "last_name": "Doe",
             "email": "johndoe_updated@example.com",  # Updated email
             "phone_number": "+1234567890",
-            "licence_number": "D123456789",  # Updated licence number
-            "licence_expiry_date": datetime.date(2026, 12, 31).isoformat(),  # Updated expiry date
+            "license_number": "D123456789",  # Updated license number
+            "license_expiry_date": datetime.date(2026, 12, 31).isoformat(),  # Updated expiry date
             "date_of_birth": datetime.date(1985, 5, 20).isoformat(),
             "address": "4567 Maple Avenue",  # Updated address
             "city": "Los Angeles",
