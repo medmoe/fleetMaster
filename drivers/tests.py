@@ -42,7 +42,6 @@ class DriversListTestCases(APITestCase):
 
     def test_successful_driver_creation(self):
         data = {
-            "profile": self.user_profile.id,
             "vehicles": [vehicle.id for vehicle in self.vehicles],
             "first_name": "John",
             "last_name": "Doe",
@@ -143,11 +142,11 @@ class DriverDetailTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_failed_update_with_invalid_data(self):
+        self.data["employment_status"] = 'invalid_status'
         response = self.client.put(reverse("driver-detail", args=[self.drivers_one[0].id]), data=self.data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_successful_update_of_driver(self):
-        self.data["profile"] = self.user_one.id
         response = self.client.put(reverse("driver-detail", args=[self.drivers_one[0].id]), data=self.data, format="json")
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         # Verify that all fields are updated correctly
