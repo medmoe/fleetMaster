@@ -6,7 +6,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .serializers import UserProfileSerializer, CustomTokenObtainPairSerializer
+from .serializers import UserProfileSerializer, CustomTokenObtainPairSerializer, ACCOUNT_NOT_FOUND_ERROR
+from .models import UserProfile
 
 
 class SignUpView(APIView):
@@ -56,6 +57,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 
 class TokenVerificationView(TokenRefreshView):
+    permission_classes = (permissions.IsAuthenticated,)
+
     def get(self, request: Request, *args, **kwargs) -> Response:
         access_token = request.COOKIES.get("access", None)
         refresh_token = request.COOKIES.get('refresh', None)

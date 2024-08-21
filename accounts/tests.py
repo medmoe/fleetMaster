@@ -149,3 +149,15 @@ class TokenVerificationTests(APITestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(response.data['detail'], 'Token is invalid or expired')
+
+    def test_token_refresh_fail_when_user_does_not_exist(self):
+        refresh = str(RefreshToken.for_user(self.user))
+        self.client.cookies['refresh'] = refresh
+        self.client.cookies['access'] = "access_token"
+        # remove the user
+        UserProfile.objects.all().delete()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+
