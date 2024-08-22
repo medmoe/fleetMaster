@@ -4,6 +4,10 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError, AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from drivers.models import Driver
+from drivers.serializers import DriverSerializer
+from vehicles.models import Vehicle
+from vehicles.serializers import VehicleSerializer
 from .models import UserProfile
 
 # Validation and Authentication error messages
@@ -73,7 +77,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = "__all__"
+        fields = ["id", "user", "phone", "address", "city", "state", "country", "zip_code"]
 
     def create(self, validated_data):
         user_data = validated_data.pop('user', None)
@@ -97,15 +101,28 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        account = UserProfile.objects.filter(user__username=attrs['username']).first()
-        if not account:
-            raise AuthenticationFailed(detail=AUTHENTICATION_ERROR)
+        account = self._validate_account(attrs)
+        data = self._get_tokens_data(attrs)
+        serialized_account = UserProfileSerializer(account).data
+        data.update(serialized_account)
+        data.update(self._get_serialized_data(Driver, DriverSerializer, account))
+        data.update(self._get_serialized_data(Vehicle, VehicleSerializer, account))
+        return data
 
+    def _get_serialized_data(self, model, serializer, profile):
+        queryset = model.objects.filter(profile=profile)
+        serializer_data = serializer(queryset, many=True).data
+        return {model.__name__.lower() + 's': serializer_data}
+
+    def _get_tokens_data(self, attrs):
         data = super().validate(attrs)
         refresh = self.get_token(self.user)
         data['refresh'] = str(refresh)
         data['access'] = str(refresh.access_token)
-
-        serialized_account = UserProfileSerializer(account).data
-        data.update(serialized_account)
         return data
+
+    def _validate_account(self, attrs):
+        account = UserProfile.objects.filter(user__username=attrs['username']).first()
+        if not account:
+            raise AuthenticationFailed(detail=AUTHENTICATION_ERROR)
+        return account
