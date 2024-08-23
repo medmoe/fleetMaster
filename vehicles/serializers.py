@@ -6,7 +6,9 @@ from .models import Vehicle
 class VehicleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vehicle
-        fields = "__all__"
+        fields = ["registration_number", "make", "model", "year", "vin", "color", "type", "status", "purchase_date", "last_service_date",
+                  "next_service_due", "mileage", "fuel_type", "capacity", "insurance_policy_number", "insurance_expiry_date", "license_expiry_date",
+                  "notes"]
         read_only_fields = ['profile']
 
     def create(self, validated_data):
