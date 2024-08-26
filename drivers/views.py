@@ -28,7 +28,6 @@ class DriversListView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-        print(serializer.errors)
         raise ValidationError(detail=serializer.errors)
 
 

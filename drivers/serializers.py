@@ -10,9 +10,5 @@ class DriverSerializer(serializers.ModelSerializer):
         read_only_fields = ['profile']
 
     def create(self, validated_data):
-        user = self.context['request'].user
-        vehicles = validated_data.pop('vehicles', [])
-        driver = Driver.objects.create(profile=user.userprofile, **validated_data)
-        driver.vehicles.set(vehicles)
-        return driver
-
+        profile = self.context['request'].user.userprofile
+        return Driver.objects.create(profile=profile, **validated_data)

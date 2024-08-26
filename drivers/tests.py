@@ -7,6 +7,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.factories import UserProfileFactory, UserProfile
 from vehicles.factories import VehicleFactory
+from vehicles.models import Vehicle
 from .factories import DriverFactory
 from .models import Driver, EmploymentStatusChoices
 
@@ -18,8 +19,6 @@ class DriversListTestCases(APITestCase):
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
         cls.vehicles = VehicleFactory.create_batch(size=5, profile=cls.user_profile)
         cls.drivers = DriverFactory.create_batch(size=5, profile=cls.user_profile)
-        for driver in cls.drivers:
-            driver.vehicles.set(cls.vehicles)
 
     def setUp(self):
         self.client.cookies["access"] = self.access_token
@@ -42,7 +41,7 @@ class DriversListTestCases(APITestCase):
 
     def test_successful_driver_creation(self):
         data = {
-            "vehicles": [vehicle.id for vehicle in self.vehicles],
+            "vehicle": self.vehicles[0].id,
             "first_name": "John",
             "last_name": "Doe",
             "email": "johndoe@example.com",
@@ -78,13 +77,9 @@ class DriverDetailTestCases(APITestCase):
         cls.drivers_one = DriverFactory.create_batch(size=1, profile=cls.user_one)
         cls.vehicles_two = VehicleFactory.create_batch(size=2, profile=cls.user_two)
         cls.drivers_two = DriverFactory.create_batch(size=1, profile=cls.user_two)
-        for driver in cls.drivers_one:
-            driver.vehicles.set(cls.vehicles_one)
-        for driver in cls.drivers_two:
-            driver.vehicles.set(cls.vehicles_two)
 
         cls.data = {
-            "vehicles": [vehicle.id for vehicle in cls.vehicles_one],
+            "vehicle": cls.vehicles_one[0].id,
             "first_name": "John",
             "last_name": "Doe",
             "email": "johndoe_updated@example.com",  # Updated email
@@ -152,8 +147,8 @@ class DriverDetailTestCases(APITestCase):
         # Verify that all fields are updated correctly
         updated_driver = Driver.objects.get(id=self.drivers_one[0].id)
         for field in self.data:
-            if field == "vehicles":
-                self.assertEqual(list(updated_driver.vehicles.values_list('id', flat=True)), self.data[field])
+            if isinstance(getattr(updated_driver, field), Vehicle):
+                self.assertEqual(getattr(updated_driver, field).id, self.data[field])
             elif isinstance(getattr(updated_driver, field), UserProfile):
                 self.assertEqual(getattr(updated_driver, field).id, self.data[field])
             elif isinstance(getattr(updated_driver, field), datetime.date):
@@ -179,4 +174,3 @@ class DriverDetailTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         drivers = Driver.objects.filter(profile=self.user_one)
         self.assertFalse(drivers)
-

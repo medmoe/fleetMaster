@@ -80,8 +80,6 @@ class LoginTestCases(APITestCase):
         cls.user_profile = UserProfileFactory.create()
         cls.vehicles = VehicleFactory.create_batch(size=2, profile=cls.user_profile)
         cls.drivers = DriverFactory.create_batch(size=5, profile=cls.user_profile)
-        for driver in cls.drivers:
-            driver.vehicles.set(cls.vehicles)
 
     def test_successful_login(self):
         response = self.client.post(reverse("login"), {"username": self.user_profile.user.username, "password": "password"}, format="json")
@@ -126,6 +124,7 @@ class TokenVerificationTests(APITestCase):
         self.client = APIClient()
         self.url = reverse('verify_token')
         self.user = User.objects.create_user(username='testuser', password='password')
+        self.client.force_authenticate(user=self.user)
 
     def test_valid_access_token(self):
         access = str(AccessToken.for_user(self.user))
@@ -164,6 +163,7 @@ class TokenVerificationTests(APITestCase):
         self.assertEqual(response.data['detail'], 'Token is invalid or expired')
 
     def test_token_refresh_fail_when_user_does_not_exist(self):
+        self.client.force_authenticate(user=None)
         refresh = str(RefreshToken.for_user(self.user))
         self.client.cookies['refresh'] = refresh
         self.client.cookies['access'] = "access_token"

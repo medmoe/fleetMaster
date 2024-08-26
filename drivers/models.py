@@ -11,7 +11,7 @@ class EmploymentStatusChoices(models.TextChoices):
 
 class Driver(models.Model):
     profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE)
-    vehicles = models.ManyToManyField(Vehicle)
+    vehicle = models.OneToOneField(Vehicle, on_delete=models.CASCADE)
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
     email = models.CharField(max_length=255, unique=True)

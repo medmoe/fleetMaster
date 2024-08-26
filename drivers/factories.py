@@ -11,7 +11,7 @@ class DriverFactory(factory.django.DjangoModelFactory):
         skip_postgeneration_save = True
 
     profile = factory.SubFactory("accounts.factories.UserProfileFactory")
-    vehicles = factory.RelatedFactoryList(VehicleFactory, factory_related_name='driver', size=2)  # Adjust size as needed
+    vehicle = factory.SubFactory("vehicles.factories.VehicleFactory")
     first_name = factory.Faker('first_name')
     last_name = factory.Faker('last_name')
     email = factory.Faker('email')
