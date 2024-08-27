@@ -19,6 +19,27 @@ class DriversListTestCases(APITestCase):
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
         cls.vehicles = VehicleFactory.create_batch(size=5, profile=cls.user_profile)
         cls.drivers = DriverFactory.create_batch(size=5, profile=cls.user_profile)
+        cls.data = {
+            "vehicle": cls.vehicles[0].id,
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "johndoe@example.com",
+            "phone_number": "+1234567890",
+            "license_number": "D123456789",
+            "license_expiry_date": datetime.date(2025, 12, 31).isoformat(),
+            "date_of_birth": datetime.date(1985, 5, 20).isoformat(),
+            "address": "1234 Elm Street",
+            "city": "New York",
+            "state": "NY",
+            "zip_code": "10001",
+            "country": "USA",
+            "profile_picture": None,  # Or a file upload object if testing file upload
+            "hire_date": datetime.date(2022, 1, 1).isoformat(),
+            "employment_status": EmploymentStatusChoices.ACTIVE,
+            "emergency_contact_name": "Jane Doe",
+            "emergency_contact_phone": "+0987654321",
+            "notes": "Test driver creation."
+        }
 
     def setUp(self):
         self.client.cookies["access"] = self.access_token
@@ -40,31 +61,33 @@ class DriversListTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_successful_driver_creation(self):
-        data = {
-            "vehicle": self.vehicles[0].id,
-            "first_name": "John",
-            "last_name": "Doe",
-            "email": "johndoe@example.com",
-            "phone_number": "+1234567890",
-            "license_number": "D123456789",
-            "license_expiry_date": datetime.date(2025, 12, 31).isoformat(),
-            "date_of_birth": datetime.date(1985, 5, 20).isoformat(),
-            "address": "1234 Elm Street",
-            "city": "New York",
-            "state": "NY",
-            "zip_code": "10001",
-            "country": "USA",
-            "profile_picture": None,  # Or a file upload object if testing file upload
-            "hire_date": datetime.date(2022, 1, 1).isoformat(),
-            "employment_status": EmploymentStatusChoices.ACTIVE,
-            "emergency_contact_name": "Jane Doe",
-            "emergency_contact_phone": "+0987654321",
-            "notes": "Test driver creation."
-        }
-        response = self.client.post(reverse("drivers"), data=data, format="json")
+        response = self.client.post(reverse("drivers"), data=self.data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Driver.objects.count(), len(self.drivers) + 1)
-        self.assertTrue(Driver.objects.filter(first_name=data["first_name"], last_name=data["last_name"], email=data["email"]))
+        self.assertTrue(Driver.objects.filter(first_name=self.data["first_name"], last_name=self.data["last_name"], email=self.data["email"]))
+
+    def test_successful_driver_creation_without_email(self):
+        del self.data["email"]
+        response = self.client.post(reverse("drivers"), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Driver.objects.count(), len(self.drivers) + 1)
+
+    def test_failed_driver_creation_with_duplicate_license_number(self):
+        # Create a driver
+        driver_data = self.data.copy()
+        driver_data["profile"] = self.user_profile
+        driver_data["vehicle"] = self.vehicles[1]
+        Driver.objects.create(**driver_data)
+        # Create a new driver with the same license number
+        response = self.client.post(reverse("drivers"), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Driver.objects.count(), len(self.drivers) + 1)
+
+    def test_failed_driver_creation_with_invalid_date_format(self):
+        # Try to create a driver with an invalid date format
+        self.data["hire_date"] = "01-01-2022"
+        response = self.client.post(reverse("drivers"), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class DriverDetailTestCases(APITestCase):
