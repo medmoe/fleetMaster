@@ -179,6 +179,35 @@ class DriverDetailTestCases(APITestCase):
             else:
                 self.assertEqual(getattr(updated_driver, field), self.data[field])
 
+    def test_failed_update_with_existing_email(self):
+        self.data["email"] = self.drivers_two[0].email
+        response = self.client.put(reverse("driver-detail", args=[self.drivers_one[0].id]), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['email'][0].code, 'unique')
+        self.assertEqual(response.data['email'][0], 'driver with this email already exists.')
+
+    def test_failed_update_with_existing_phone_number(self):
+        self.data["phone_number"] = self.drivers_two[0].phone_number
+        response = self.client.put(reverse("driver-detail", args=[self.drivers_one[0].id]), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['phone_number'][0].code, 'unique')
+        self.assertEqual(response.data['phone_number'][0], 'driver with this phone number already exists.')
+
+    def test_failed_update_with_existing_license_number(self):
+        self.data["license_number"] = self.drivers_two[0].license_number
+        response = self.client.put(reverse("driver-detail", args=[self.drivers_one[0].id]), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['license_number'][0].code, 'unique')
+        self.assertEqual(response.data['license_number'][0], 'driver with this license number already exists.')
+
+    def test_failed_update_with_wrong_date_format(self):
+        # Update date fields with wrong format
+        self.data["hire_date"] = "2022-13-01"  # Invalid month
+        response = self.client.put(reverse("driver-detail", args=[self.drivers_one[0].id]), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['hire_date'][0].code, 'invalid')
+        self.assertEqual(response.data['hire_date'][0], 'Date has wrong format. Use one of these formats instead: YYYY-MM-DD.')
+
     def test_failed_driver_delete_with_unauthenticated_user(self):
         self.client.cookies["access"] = None
         response = self.client.delete(reverse("driver-detail", args=[self.drivers_one[0].id]))
