@@ -7,6 +7,8 @@ from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 
 from .factories import UserProfileFactory
 from .models import UserProfile
+from drivers.factories import DriverFactory
+from vehicles.factories import VehicleFactory
 
 
 class SignUpTestCases(APITestCase):
@@ -73,17 +75,26 @@ class SignUpTestCases(APITestCase):
 
 
 class LoginTestCases(APITestCase):
-    def setUp(self):
-        self.user_profile = UserProfileFactory.create()
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        cls.vehicles = VehicleFactory.create_batch(size=2, profile=cls.user_profile)
+        cls.drivers = DriverFactory.create_batch(size=5, profile=cls.user_profile)
 
     def test_successful_login(self):
         response = self.client.post(reverse("login"), {"username": self.user_profile.user.username, "password": "password"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Make sure that the data is returned in the response
-        self.assertEqual(response.data['user']['username'], self.user_profile.user.username)
-        self.assertEqual(response.data['user']['email'], self.user_profile.user.email)
+
+        # Assert check on returned data
+        for key, expected_value in [('username', self.user_profile.user.username), ('email', self.user_profile.user.email)]:
+            self.assertEqual(response.data['user'][key], expected_value)
+        for key, expected_length in [('drivers', len(self.drivers)), ('vehicles', len(self.vehicles))]:
+            self.assertIn(key, response.data)
+            self.assertEqual(len(response.data[key]), expected_length)
+
         # Make sure the password is not included in the response
         self.assertNotIn('password', response.data['user'])
+
         # Make sure that the access and refresh tokens are embedded in the cookies
         for key in ('refresh', 'access'):
             self.assertIn(key, response.cookies)
@@ -113,6 +124,7 @@ class TokenVerificationTests(APITestCase):
         self.client = APIClient()
         self.url = reverse('verify_token')
         self.user = User.objects.create_user(username='testuser', password='password')
+        self.client.force_authenticate(user=self.user)
 
     def test_valid_access_token(self):
         access = str(AccessToken.for_user(self.user))
@@ -151,6 +163,7 @@ class TokenVerificationTests(APITestCase):
         self.assertEqual(response.data['detail'], 'Token is invalid or expired')
 
     def test_token_refresh_fail_when_user_does_not_exist(self):
+        self.client.force_authenticate(user=None)
         refresh = str(RefreshToken.for_user(self.user))
         self.client.cookies['refresh'] = refresh
         self.client.cookies['access'] = "access_token"
@@ -158,6 +171,3 @@ class TokenVerificationTests(APITestCase):
         UserProfile.objects.all().delete()
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-
-

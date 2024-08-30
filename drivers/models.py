@@ -1,5 +1,4 @@
 from django.db import models
-from vehicles.models import Vehicle
 from accounts.models import UserProfile
 
 
@@ -11,11 +10,11 @@ class EmploymentStatusChoices(models.TextChoices):
 
 class Driver(models.Model):
     profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE)
-    vehicles = models.ManyToManyField(Vehicle)
+    vehicle = models.ForeignKey("vehicles.Vehicle", on_delete=models.CASCADE)
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
-    email = models.CharField(max_length=255, unique=True)
-    phone_number = models.CharField(max_length=100)
+    email = models.CharField(max_length=255, blank=True, unique=True, null=True)
+    phone_number = models.CharField(max_length=100, unique=True)
     license_number = models.CharField(max_length=100, unique=True, blank=True)
     license_expiry_date = models.DateField(blank=True)
     date_of_birth = models.DateField(blank=True)
@@ -25,7 +24,7 @@ class Driver(models.Model):
     zip_code = models.CharField(max_length=100, blank=True)
     country = models.CharField(max_length=100, blank=True)
     profile_picture = models.ImageField(upload_to='profile_pics/', null=True)
-    hire_date = models.DateField()
+    hire_date = models.DateField(blank=True)
     employment_status = models.CharField(max_length=100,
                                          choices=EmploymentStatusChoices.choices,
                                          default=EmploymentStatusChoices.ACTIVE)
