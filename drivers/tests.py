@@ -200,6 +200,12 @@ class DriverDetailTestCases(APITestCase):
         self.assertEqual(response.data['license_number'][0].code, 'unique')
         self.assertEqual(response.data['license_number'][0], 'driver with this license number already exists.')
 
+    def test_update_vehicle_assigned_to_driver(self):
+        self.data["vehicle"] = self.vehicles_two[0].id
+        response = self.client.put(reverse("driver-detail", args=[self.drivers_one[0].id]), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertEqual(response.data['vehicle'], self.vehicles_two[0].id)
+
     def test_failed_update_with_wrong_date_format(self):
         # Update date fields with wrong format
         self.data["hire_date"] = "2022-13-01"  # Invalid month
