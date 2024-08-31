@@ -44,6 +44,11 @@ class DriversListTestCases(APITestCase):
     def setUp(self):
         self.client.cookies["access"] = self.access_token
 
+    def make_invalid_requests(self, field):
+        del self.data[field]
+        response = self.client.post(reverse("drivers"), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_successful_drivers_retrieval(self):
         response = self.client.get(reverse("drivers"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -88,6 +93,18 @@ class DriversListTestCases(APITestCase):
         self.data["hire_date"] = "01-01-2022"
         response = self.client.post(reverse("drivers"), data=self.data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_failed_driver_creation_with_no_license_expiry_date(self):
+        self.make_invalid_requests("license_expiry_date")
+
+    def test_failed_driver_creation_with_no_date_of_birth(self):
+        self.make_invalid_requests("date_of_birth")
+
+    def test_failed_driver_creation_with_no_hire_date(self):
+        self.make_invalid_requests("hire_date")
+
+
+
 
 
 class DriverDetailTestCases(APITestCase):

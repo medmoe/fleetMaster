@@ -15,7 +15,7 @@ class DriverSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        fields_to_validate = ['license_number', 'phone_number', 'email']
+        fields_to_validate = ['license_number', 'phone_number', 'email', 'license_expiry_date', 'date_of_birth', 'hire_date']
         for field in fields_to_validate:
             field_value = data.get(field, None)
             if field_value is None and field != 'email':
