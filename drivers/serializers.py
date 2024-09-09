@@ -13,6 +13,12 @@ class DriverSerializer(serializers.ModelSerializer):
         profile = self.context['request'].user.userprofile
         return Driver.objects.create(profile=profile, **validated_data)
 
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
     def validate(self, attrs):
         data = super().validate(attrs)
         for field in ['license_expiry_date', 'date_of_birth', 'hire_date']:
@@ -25,7 +31,11 @@ class DriverSerializer(serializers.ModelSerializer):
             if field_value is None and field != 'email':
                 raise serializers.ValidationError(f"{field.replace('_', ' ').capitalize()} can't be empty")
 
-            if Driver.objects.filter(**{field: field_value}).exists():
+            existing_driver_query = Driver.objects.filter(**{field: field_value})
+            if self.instance:
+                existing_driver_query = existing_driver_query.exclude(pk=self.instance.pk)
+
+            if existing_driver_query:
                 raise serializers.ValidationError(f"A driver with this {field.replace('_', ' ')} already exists")
 
         return data

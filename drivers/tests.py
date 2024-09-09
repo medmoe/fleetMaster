@@ -104,9 +104,6 @@ class DriversListTestCases(APITestCase):
         self.make_invalid_requests("hire_date")
 
 
-
-
-
 class DriverDetailTestCases(APITestCase):
     @classmethod
     def setUpTestData(cls):
@@ -120,23 +117,23 @@ class DriverDetailTestCases(APITestCase):
 
         cls.data = {
             "vehicle": cls.vehicles_one[0].id,
-            "first_name": "John",
-            "last_name": "Doe",
-            "email": "johndoe_updated@example.com",  # Updated email
-            "phone_number": "+1234567890",
-            "license_number": "D123456789",  # Updated license number
-            "license_expiry_date": datetime.date(2026, 12, 31).isoformat(),  # Updated expiry date
-            "date_of_birth": datetime.date(1985, 5, 20).isoformat(),
-            "address": "4567 Maple Avenue",  # Updated address
-            "city": "Los Angeles",
-            "state": "CA",
-            "zip_code": "90001",
-            "country": "USA",
-            "hire_date": datetime.date(2022, 1, 1).isoformat(),
+            "first_name": cls.drivers_one[0].first_name,
+            "last_name": cls.drivers_one[0].last_name,
+            "email": cls.drivers_one[0].email,  # Updated email
+            "phone_number": cls.drivers_one[0].phone_number,
+            "license_number": "Updated License Number",  # Updated license number
+            "license_expiry_date": datetime.date(2025, 12, 31).isoformat(),  # Updated expiry date
+            "date_of_birth": datetime.date(2025, 12, 31).isoformat(),
+            "address": cls.drivers_one[0].address,  # Updated address
+            "city": cls.drivers_one[0].city,
+            "state": cls.drivers_one[0].state,
+            "zip_code": cls.drivers_one[0].zip_code,
+            "country": cls.drivers_one[0].country,
+            "hire_date": datetime.date(2025, 12, 31).isoformat(),
             "employment_status": EmploymentStatusChoices.INACTIVE,  # Updated employment status
-            "emergency_contact_name": "Jane Doe",
-            "emergency_contact_phone": "+0987654321",
-            "notes": "Updated driver information."  # Updated notes
+            "emergency_contact_name": cls.drivers_one[0].emergency_contact_name,
+            "emergency_contact_phone": cls.drivers_one[0].emergency_contact_phone,
+            "notes": "Updated Notes"  # Updated notes
         }
 
     def setUp(self):
