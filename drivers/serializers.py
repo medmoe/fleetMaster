@@ -6,7 +6,26 @@ from .models import Driver
 class DriverSerializer(serializers.ModelSerializer):
     class Meta:
         model = Driver
-        fields = "__all__"
+        fields = [
+            "first_name",
+            "last_name",
+            "email",
+            "phone_number",
+            "license_number",
+            "license_expiry_date",
+            "date_of_birth",
+            "address",
+            "city",
+            "state",
+            "zip_code",
+            "country",
+            "hire_date",
+            "employment_status",
+            "emergency_contact_name",
+            "emergency_contact_phone",
+            "notes",
+            "vehicle",
+        ]
         read_only_fields = ['profile']
 
     def create(self, validated_data):

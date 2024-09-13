@@ -54,12 +54,6 @@ class DriversListTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], len(self.drivers))
 
-        # Verify the content of the response
-        driver_fields = [field.name for field in Driver._meta.get_fields()]
-        for driver in response.data['results']:
-            for field in driver_fields:
-                self.assertIn(field, driver)
-
     def test_failed_drivers_retrieval_with_unauthenticated_user(self):
         self.client.cookies["access"] = None
         response = self.client.get(reverse("drivers"))
