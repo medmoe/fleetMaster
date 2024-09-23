@@ -21,7 +21,7 @@ class PartsProviderSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class PartsPurchaseEventSerializer(serializers.ModelSerializer):
+class PartPurchaseEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = PartPurchaseEvent
         fields = "__all__"

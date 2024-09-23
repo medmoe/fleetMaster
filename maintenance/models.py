@@ -37,6 +37,7 @@ class PartsProvider(models.Model):
 
 
 class PartPurchaseEvent(models.Model):
+    profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE)
     part = models.ForeignKey(Part, on_delete=models.CASCADE)
     provider = models.ForeignKey(PartsProvider, on_delete=models.CASCADE)
     purchase_date = models.DateField()
@@ -45,6 +46,7 @@ class PartPurchaseEvent(models.Model):
 
 
 class MaintenanceReport(models.Model):
+    profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE)
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='maintenance_reports')
     service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE, related_name='maintenance_reports')
     start_date = models.DateField()

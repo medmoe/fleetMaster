@@ -3,9 +3,11 @@ from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.pagination import PageNumberPagination
 
-from .models import Part, ServiceProvider, PartsProvider
-from .serializers import PartSerializer, ServiceProviderSerializer, PartsProviderSerializer
+from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent
+from .permissions import IsPartPurchaseEventOwner
+from .serializers import PartSerializer, ServiceProviderSerializer, PartsProviderSerializer, PartPurchaseEventSerializer
 
 
 # Create your views here.
@@ -140,3 +142,16 @@ class PartsProviderDetailsView(APIView):
         provider = self.get_object(pk)
         provider.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PartPurchaseEventsListView(APIView):
+    permission_classes = [IsAuthenticated, ]
+
+    def get(self, request):
+        part_purchase_events = PartPurchaseEvent.objects.filter(profile__user=request.user).order_by('purchase_date')
+        paginator = PageNumberPagination()
+        paginated_part_purchase_events = paginator.paginate_queryset(part_purchase_events, request)
+        serializer = PartPurchaseEventSerializer(paginated_part_purchase_events, many=True, context={"request": request})
+        return paginator.get_paginated_response(serializer.data)
+
+

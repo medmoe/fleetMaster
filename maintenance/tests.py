@@ -1,10 +1,13 @@
+import datetime
+import random
+
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.factories import UserProfileFactory
-from .factories import PartFactory, PartsProviderFactory, ServiceProviderFactory
+from .factories import PartFactory, PartsProviderFactory, ServiceProviderFactory, PartPurchaseEventFactory
 from .models import Part, PartsProvider, ServiceProvider
 
 
@@ -297,4 +300,31 @@ class PartsProviderDetailsTestCases(APITestCase):
 
         # Test DELETE method
         response = self.client.delete(reverse('parts-provider-details', args=[self.parts_provider.id]))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class PartPurchaseEventsListTestCases(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        cls.access_token = AccessToken.for_user(cls.user_profile.user)
+        cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=10)
+        cls.part = PartFactory.create()
+        cls.part_provider = PartsProviderFactory.create()
+
+    def setUp(self):
+        self.client.cookies['access'] = self.access_token
+        self.part_purchase_event_data = {
+            "profile": self.user_profile.id,
+            "part": self.part.id,
+            "provider": self.part_provider.id,
+            "purchase_date": datetime.date(2020, 12, 31).isoformat(),
+            "cost": random.randint(0, 10**10)
+        }
+
+    def test_authenticated_access(self):
+        self.client.cookies['access'] = None
+        response = self.client.get(reverse("part-purchase-events"))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = self.client.post(reverse("part-purchase-events"), data=self.part_purchase_event_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

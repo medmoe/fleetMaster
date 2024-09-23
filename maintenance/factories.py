@@ -34,8 +34,9 @@ class PartPurchaseEventFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = PartPurchaseEvent
 
+    profile = factory.SubFactory("accounts.factories.UserProfileFactory")
     part = factory.SubFactory(PartFactory)
-    provider = factory.SubFactory(ServiceProviderFactory)
+    provider = factory.SubFactory(PartsProviderFactory)
     purchase_date = factory.Faker('date')
     cost = factory.Faker('random_int')
 
@@ -44,6 +45,7 @@ class MaintenanceReportFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = MaintenanceReport
 
+    profile = factory.SubFactory("accounts.factories.UserProfileFactory")
     vehicle = factory.SubFactory('vehicles.factories.VehicleFactory')
     service_provider = factory.SubFactory(ServiceProviderFactory)
     start_date = factory.Faker('date')
