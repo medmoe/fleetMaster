@@ -25,6 +25,11 @@ class PartPurchaseEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = PartPurchaseEvent
         fields = "__all__"
+        read_only_fields = ['profile']
+
+    def create(self, validated_data):
+        profile = self.context['request'].user.userprofile
+        return PartPurchaseEvent.objects.create(profile=profile, **validated_data)
 
 
 class MaintenanceReportSerializer(serializers.ModelSerializer):

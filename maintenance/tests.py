@@ -7,8 +7,9 @@ from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.factories import UserProfileFactory
+from accounts.models import UserProfile
 from .factories import PartFactory, PartsProviderFactory, ServiceProviderFactory, PartPurchaseEventFactory
-from .models import Part, PartsProvider, ServiceProvider
+from .models import Part, PartsProvider, ServiceProvider, PartPurchaseEvent
 
 
 class PartsTestCases(APITestCase):
@@ -308,18 +309,17 @@ class PartPurchaseEventsListTestCases(APITestCase):
     def setUpTestData(cls):
         cls.user_profile = UserProfileFactory.create()
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
-        cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=10)
+        cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=10, profile=cls.user_profile)
         cls.part = PartFactory.create()
         cls.part_provider = PartsProviderFactory.create()
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token
         self.part_purchase_event_data = {
-            "profile": self.user_profile.id,
             "part": self.part.id,
             "provider": self.part_provider.id,
             "purchase_date": datetime.date(2020, 12, 31).isoformat(),
-            "cost": random.randint(0, 10**10)
+            "cost": random.randint(0, 10 ** 8)  # Range of accepted values.
         }
 
     def test_authenticated_access(self):
@@ -327,4 +327,86 @@ class PartPurchaseEventsListTestCases(APITestCase):
         response = self.client.get(reverse("part-purchase-events"))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         response = self.client.post(reverse("part-purchase-events"), data=self.part_purchase_event_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_successful_retrieval_of_purchase_events(self):
+        response = self.client.get(reverse("part-purchase-events"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], len(self.part_purchase_events))
+
+    def test_successful_creation_of_purchase_event(self):
+        response = self.client.post(reverse("part-purchase-events"), data=self.part_purchase_event_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(PartPurchaseEvent.objects.count(), len(self.part_purchase_events) + 1)
+        for key, value in self.part_purchase_event_data.items():
+            created_obj = PartPurchaseEvent.objects.get(profile=self.user_profile, part=self.part)
+            attr = getattr(created_obj, key)
+            if isinstance(attr, UserProfile) or isinstance(attr, Part) or isinstance(attr, PartsProvider):
+                self.assertEqual(attr.id, value)
+            elif isinstance(attr, datetime.date):
+                self.assertEqual(attr.isoformat(), value)
+            else:
+                self.assertEqual(attr, value)
+
+
+class PartPurchaseEventDetailsTestCases(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        cls.other_user = UserProfileFactory.create()
+        cls.access_token = AccessToken.for_user(cls.user_profile.user)
+        cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=10, profile=cls.user_profile)
+        cls.other_part_purchase_events = PartPurchaseEventFactory.create_batch(size=5, profile=cls.other_user)
+        cls.part = PartFactory.create()
+        cls.part_provider = PartsProviderFactory.create()
+
+    def setUp(self):
+        self.client.cookies['access'] = self.access_token
+        self.part_purchase_event_to_query = random.choice(self.part_purchase_events)
+        self.other_part_purchase_event_to_query = random.choice(self.other_part_purchase_events)
+        new_part = PartFactory.create()
+        self.part_purchase_event_data = {
+            "part": new_part.id,
+            "provider": self.part_provider.id,
+            "purchase_date": datetime.date(2020, 12, 31).isoformat(),
+            "cost": random.randint(0, 10 ** 8)  # Range of accepted values.
+        }
+
+    def test_successful_retrieval_of_part_purchase_event(self):
+        response = self.client.get(reverse('part-purchase-event-details', args=[self.part_purchase_event_to_query.id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data)
+
+    def test_failed_retrieval_of_not_own_part_purchase_event(self):
+        response = self.client.get(reverse('part-purchase-event-details', args=[self.other_part_purchase_event_to_query.id]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_successful_update_of_part_purchase_event(self):
+        response = self.client.put(
+            reverse('part-purchase-event-details', args=[self.part_purchase_event_to_query.id]),
+            data=self.part_purchase_event_data,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+
+    def test_failed_update_of_not_own_part_purchase_event(self):
+        response = self.client.put(reverse('part-purchase-event-details', args=[self.other_part_purchase_event_to_query.id]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_successful_deletion_of_part_purchase_event(self):
+        response = self.client.delete(reverse('part-purchase-event-details', args=[self.part_purchase_event_to_query.id]))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(PartPurchaseEvent.objects.filter(id=self.part_purchase_event_to_query.id).first())
+
+    def test_authenticated_access(self):
+        self.client.cookies['access'] = None
+        response = self.client.get(reverse('part-purchase-event-details', args=[self.part_purchase_event_to_query.id]))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = self.client.put(
+            reverse('part-purchase-event-details', args=[self.part_purchase_event_to_query.id]),
+            data=self.part_purchase_event_data,
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = self.client.delete(reverse('part-purchase-event-details', args=[self.part_purchase_event_to_query.id]))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
