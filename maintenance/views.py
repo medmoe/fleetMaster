@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent
-from .serializers import PartSerializer, ServiceProviderSerializer, PartsProviderSerializer, PartPurchaseEventSerializer
+from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, MaintenanceReport
+from .serializers import PartSerializer, ServiceProviderSerializer, PartsProviderSerializer, PartPurchaseEventSerializer, MaintenanceReportSerializer
 
 
 # Create your views here.
@@ -187,4 +187,50 @@ class PartPurchaseEventDetailsView(APIView):
     def delete(self, request, pk):
         part_purchase_event = self.get_object(pk, request.user)
         part_purchase_event.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MaintenanceReportListView(APIView):
+    permission_classes = [IsAuthenticated, ]
+
+    def get(self, request):
+        maintenance_reports = MaintenanceReport.objects.filter(profile__user=request.user).order_by('start_date')
+        paginator = PageNumberPagination()
+        paginated_maintenance_reports = paginator.paginate_queryset(maintenance_reports, request)
+        serializer = MaintenanceReportSerializer(paginated_maintenance_reports, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
+
+    def post(self, request):
+        serializer = MaintenanceReportSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        raise ValidationError(detail=serializer.errors)
+
+
+class MaintenanceReportDetailsView(APIView):
+    permission_classes = [IsAuthenticated, ]
+
+    def get_object(self, pk, user):
+        try:
+            return MaintenanceReport.objects.get(pk=pk, profile__user=user)
+        except MaintenanceReport.DoesNotExist:
+            raise NotFound(detail="Maintenance report does not exist")
+
+    def get(self, request, pk):
+        maintenance_report = self.get_object(pk, request.user)
+        serializer = MaintenanceReportSerializer(maintenance_report)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request, pk):
+        maintenance_report = self.get_object(pk, request.user)
+        serializer = MaintenanceReportSerializer(maintenance_report, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status.HTTP_202_ACCEPTED)
+        return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        maintenance_report = self.get_object(pk, request.user)
+        maintenance_report.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

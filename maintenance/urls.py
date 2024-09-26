@@ -1,7 +1,7 @@
 from django.urls import path
 
 from .views import PartsListView, PartDetailsView, ServiceProviderListView, ServiceProviderDetailsView, PartsProvidersListView, \
-    PartsProviderDetailsView, PartPurchaseEventsListView, PartPurchaseEventDetailsView
+    PartsProviderDetailsView, PartPurchaseEventsListView, PartPurchaseEventDetailsView, MaintenanceReportListView, MaintenanceReportDetailsView
 
 urlpatterns = [
     path('parts/', PartsListView.as_view(), name='parts'),
@@ -11,5 +11,7 @@ urlpatterns = [
     path('parts-providers/', PartsProvidersListView.as_view(), name='parts-providers'),
     path('parts-providers/<int:pk>/', PartsProviderDetailsView.as_view(), name="parts-provider-details"),
     path('part-purchase-events/', PartPurchaseEventsListView.as_view(), name='part-purchase-events'),
-    path('part-purchase-events/<int:pk>', PartPurchaseEventDetailsView.as_view(), name='part-purchase-event-details')
+    path('part-purchase-events/<int:pk>', PartPurchaseEventDetailsView.as_view(), name='part-purchase-event-details'),
+    path('maintenance-report/', MaintenanceReportListView.as_view(), name='maintenance-report'),
+    path('maintenance-report/<int:pk>', MaintenanceReportDetailsView.as_view(), name='maintenance-report-details'),
 ]

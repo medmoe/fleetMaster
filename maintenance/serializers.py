@@ -36,3 +36,12 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = MaintenanceReport
         fields = "__all__"
+        read_only_fields = ['profile']
+
+    def create(self, validated_data):
+        profile = self.context['request'].user.userprofile
+        part_purchase_events_data = validated_data.pop('parts')
+        maintenance_report = MaintenanceReport.objects.create(profile=profile, **validated_data)
+        for part_purchase_event in part_purchase_events_data:
+            maintenance_report.parts.add(part_purchase_event)
+        return maintenance_report

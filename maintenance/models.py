@@ -49,10 +49,10 @@ class MaintenanceReport(models.Model):
     profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE)
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='maintenance_reports')
     service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE, related_name='maintenance_reports')
+    parts = models.ManyToManyField(PartPurchaseEvent, related_name='maintenance_reports')
     start_date = models.DateField()
     end_date = models.DateField()
     cost = models.DecimalField(max_digits=10, decimal_places=2)
-    parts = models.ManyToManyField(PartPurchaseEvent, related_name='maintenance_reports')
     description = models.TextField(blank=True)
     mileage = models.PositiveIntegerField(blank=True)
 

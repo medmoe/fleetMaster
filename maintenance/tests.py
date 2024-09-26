@@ -8,8 +8,9 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.factories import UserProfileFactory
 from accounts.models import UserProfile
-from .factories import PartFactory, PartsProviderFactory, ServiceProviderFactory, PartPurchaseEventFactory
-from .models import Part, PartsProvider, ServiceProvider, PartPurchaseEvent
+from vehicles.factories import VehicleFactory
+from .factories import PartFactory, PartsProviderFactory, ServiceProviderFactory, PartPurchaseEventFactory, MaintenanceReportFactory
+from .models import Part, PartsProvider, ServiceProvider, PartPurchaseEvent, MaintenanceReport
 
 
 class PartsTestCases(APITestCase):
@@ -410,3 +411,82 @@ class PartPurchaseEventDetailsTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         response = self.client.delete(reverse('part-purchase-event-details', args=[self.part_purchase_event_to_query.id]))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class MaintenanceReportListViewTestCases(APITestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        cls.access_token = AccessToken.for_user(cls.user_profile.user)
+        cls.vehicle = VehicleFactory.create(profile=cls.user_profile)
+        cls.service_provider = ServiceProviderFactory.create()
+        cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=10)
+        cls.maintenance_reports = MaintenanceReportFactory.create_batch(size=10, profile=cls.user_profile)
+
+    def setUp(self):
+        self.client.cookies['access'] = self.access_token
+        self.maintenance_report_data = {
+            "profile": self.user_profile.id,
+            "vehicle": self.vehicle.id,
+            "service_provider": self.service_provider.id,
+            "parts": [part_purchase_event.id for part_purchase_event in self.part_purchase_events],
+            "start_date": datetime.date(2020, 12, 27).isoformat(),
+            "end_date": datetime.date(2020, 12, 31).isoformat(),
+            "cost": random.randint(0, 10 ** 8),
+            "description": "description",
+            "mileage": 55555,
+        }
+
+    def test_successful_retrieval_of_maintenance_reports(self):
+        response = self.client.get(reverse("maintenance-report"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], len(self.maintenance_reports))
+
+    def test_creation_of_new_report(self):
+        response = self.client.post(reverse("maintenance-report"), data=self.maintenance_report_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(MaintenanceReport.objects.count(), len(self.maintenance_reports) + 1)
+
+    def test_unauthorised_access(self):
+        self.client.cookies['access'] = None
+        response = self.client.get(reverse("maintenance-report"))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = self.client.post(reverse("maintenance-report"), data=self.maintenance_report_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class MaintenanceReportDetailsTestCases(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        cls.access_token = AccessToken.for_user(cls.user_profile.user)
+        cls.vehicle = VehicleFactory.create(profile=cls.user_profile)
+        cls.service_provider = ServiceProviderFactory.create()
+        cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=10)
+        cls.maintenance_report = MaintenanceReportFactory.create(profile=cls.user_profile)
+
+    def setUp(self):
+        self.client.cookies['access'] = self.access_token
+
+    def test_successful_maintenance_report_retrieval(self):
+        response = self.client.get(reverse('maintenance-report-details', args=[self.maintenance_report.id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_successful_maintenance_report_update(self):
+        data = {
+            "vehicle": self.vehicle.id,
+            "service_provider": self.service_provider.id,
+            "parts": [part.id for part in self.part_purchase_events],
+            "start_date": datetime.date(2020, 12, 27).isoformat(),
+            "end_date": datetime.date(2020, 12, 31).isoformat(),
+            "cost": random.randint(0, 10 ** 8),
+            "description": "description",
+            "mileage": 55555,
+        }
+        response = self.client.put(reverse('maintenance-report-details', args=[self.maintenance_report.id]), data=data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+
+    def test_successful_maintenance_report_deletion(self):
+        response = self.client.delete(reverse("maintenance-report-details", args=[self.maintenance_report.id]))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
