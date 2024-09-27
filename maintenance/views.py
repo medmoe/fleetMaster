@@ -1,3 +1,5 @@
+import datetime
+
 from rest_framework import status
 from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.pagination import PageNumberPagination
@@ -5,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, MaintenanceReport
+from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, MaintenanceReport, MaintenanceChoices, ServiceChoices
 from .serializers import PartSerializer, ServiceProviderSerializer, PartsProviderSerializer, PartPurchaseEventSerializer, MaintenanceReportSerializer
 
 
@@ -234,3 +236,59 @@ class MaintenanceReportDetailsView(APIView):
         maintenance_report = self.get_object(pk, request.user)
         maintenance_report.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MaintenanceReportOverviewView(APIView):
+    permission_classes = [IsAuthenticated, ]
+
+    def get_maintenance_report(self, month=None, year=None, user=None):
+        if year:
+            total_maintenance_reports = MaintenanceReport.objects.filter(profile=user, start_date__year=year)
+        elif month:
+            total_maintenance_reports = MaintenanceReport.objects.filter(profile=user, start_date__month=month)
+        else:
+            total_maintenance_reports = MaintenanceReport.objects.all()
+
+        report = {
+            "total_maintenance": len(total_maintenance_reports),
+            "total_maintenance_cost": 0,
+            "preventive": 0,
+            "preventive_cost": 0,
+            "curative": 0,
+            "curative_cost": 0,
+            "total_service_cost": 0,
+            "mechanic": 0,
+            "electrician": 0,
+            "cleaning": 0
+        }
+        for maintenance_report in total_maintenance_reports:
+            report["total_maintenance_cost"] += maintenance_report.total_cost
+            report["preventive"] += (1 if maintenance_report.maintenance_type == MaintenanceChoices.PREVENTIVE else 0)
+            report["preventive_cost"] += (
+                maintenance_report.total_cost if maintenance_report.maintenance_type == MaintenanceChoices.PREVENTIVE else 0)
+            report["curative"] += (1 if maintenance_report.maintenance_type == MaintenanceChoices.CURATIVE else 0)
+            report["curative_cost"] += (maintenance_report.total_cost if maintenance_report.maintenance_type == MaintenanceChoices.CURATIVE else 0)
+            report["total_service_cost"] += maintenance_report.cost
+            report["mechanic"] += (maintenance_report.cost if maintenance_report.service_provider.service_type == ServiceChoices.MECHANIC else 0)
+            report["electrician"] += (
+                maintenance_report.cost if maintenance_report.service_provider.service_type == ServiceChoices.ELECTRICIAN else 0)
+            report["cleaning"] += (maintenance_report.cost if maintenance_report.service_provider.service_type == ServiceChoices.CLEANING else 0)
+
+        return report
+
+    def get(self, request):
+        year = request.GET.get('year')
+        month = request.GET.get('month')
+
+        if year:
+            report_of_current_year = self.get_maintenance_report(year=year, user=request.user.userprofile)
+            report_of_previous_year = self.get_maintenance_report(year=year - 1, user=request.user.userprofile)
+            return Response({"previous_year": report_of_previous_year, "current_year": report_of_current_year}, status=status.HTTP_200_OK)
+
+        if month:
+            year = datetime.date.today().year
+            report_of_current_month = self.get_maintenance_report(month=month, user=request.user.userprofile)
+            report_of_previous_month = self.get_maintenance_report(month=12, year=year - 1,
+                                                                   user=request.user.userprofile) if month == 1 else self.get_maintenance_report(
+                month=month, year=year, user=request.user.userprofile)
+            return Response({"previous_month": report_of_previous_month, "current_month": report_of_current_month}, status=status.HTTP_200_OK)

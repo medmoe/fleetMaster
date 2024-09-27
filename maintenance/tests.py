@@ -439,20 +439,20 @@ class MaintenanceReportListViewTestCases(APITestCase):
         }
 
     def test_successful_retrieval_of_maintenance_reports(self):
-        response = self.client.get(reverse("maintenance-report"))
+        response = self.client.get(reverse("reports"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], len(self.maintenance_reports))
 
     def test_creation_of_new_report(self):
-        response = self.client.post(reverse("maintenance-report"), data=self.maintenance_report_data, format="json")
+        response = self.client.post(reverse("reports"), data=self.maintenance_report_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(MaintenanceReport.objects.count(), len(self.maintenance_reports) + 1)
 
     def test_unauthorised_access(self):
         self.client.cookies['access'] = None
-        response = self.client.get(reverse("maintenance-report"))
+        response = self.client.get(reverse("reports"))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        response = self.client.post(reverse("maintenance-report"), data=self.maintenance_report_data, format="json")
+        response = self.client.post(reverse("reports"), data=self.maintenance_report_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
@@ -470,7 +470,7 @@ class MaintenanceReportDetailsTestCases(APITestCase):
         self.client.cookies['access'] = self.access_token
 
     def test_successful_maintenance_report_retrieval(self):
-        response = self.client.get(reverse('maintenance-report-details', args=[self.maintenance_report.id]))
+        response = self.client.get(reverse('reports-details', args=[self.maintenance_report.id]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_successful_maintenance_report_update(self):
@@ -484,9 +484,33 @@ class MaintenanceReportDetailsTestCases(APITestCase):
             "description": "description",
             "mileage": 55555,
         }
-        response = self.client.put(reverse('maintenance-report-details', args=[self.maintenance_report.id]), data=data, format='json')
+        response = self.client.put(reverse('reports-details', args=[self.maintenance_report.id]), data=data, format='json')
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
 
     def test_successful_maintenance_report_deletion(self):
-        response = self.client.delete(reverse("maintenance-report-details", args=[self.maintenance_report.id]))
+        response = self.client.delete(reverse("reports-details", args=[self.maintenance_report.id]))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+
+class MaintenanceReportOverviewTestCases(APITestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        cls.access_token = AccessToken.for_user(cls.user_profile.user)
+        cls.vehicle = VehicleFactory.create(profile=cls.user_profile)
+        cls.service_providers = ServiceProviderFactory.create_batch(size=5)
+        cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=5)
+        cls.maintenance_reports = MaintenanceReportFactory.create_batch(size=15, profile=cls.user_profile,
+                                                                        service_provider=random.choice(cls.service_providers))
+
+    def setUp(self):
+        self.client.cookies['access'] = self.access_token
+
+    def test_successful_maintenance_report_retrieval(self):
+        response = self.client.get(reverse('overview'), {"month": 1})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("previous_month", response.data)
+        self.assertIn("current_month", response.data)
+        self.assertEqual(response.data["current_month"]["total_maintenance"],
+                         len(MaintenanceReport.objects.filter(profile=self.user_profile, start_date__month=1)))

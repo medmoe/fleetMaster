@@ -1,6 +1,6 @@
 import factory
 
-from .models import Part, PartsProvider, PartPurchaseEvent, ServiceProvider, ServiceChoices, MaintenanceReport
+from .models import Part, PartsProvider, PartPurchaseEvent, ServiceProvider, ServiceChoices, MaintenanceReport, MaintenanceChoices
 
 
 class PartFactory(factory.django.DjangoModelFactory):
@@ -48,6 +48,7 @@ class MaintenanceReportFactory(factory.django.DjangoModelFactory):
     profile = factory.SubFactory("accounts.factories.UserProfileFactory")
     vehicle = factory.SubFactory('vehicles.factories.VehicleFactory')
     service_provider = factory.SubFactory(ServiceProviderFactory)
+    maintenance_type = factory.Iterator([choice[0] for choice in MaintenanceChoices.choices])
     start_date = factory.Faker('date')
     end_date = factory.Faker('date')
     cost = factory.Faker('random_int')

@@ -9,6 +9,11 @@ class ServiceChoices(models.TextChoices):
     CLEANING = "CLEANING", "Cleaning"
 
 
+class MaintenanceChoices(models.TextChoices):
+    PREVENTIVE = 'PREVENTIVE', "Preventive"
+    CURATIVE = 'CURATIVE', "Curative"
+
+
 class Part(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
@@ -50,6 +55,7 @@ class MaintenanceReport(models.Model):
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='maintenance_reports')
     service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE, related_name='maintenance_reports')
     parts = models.ManyToManyField(PartPurchaseEvent, related_name='maintenance_reports')
+    maintenance_type = models.CharField(max_length=50, choices=MaintenanceChoices.choices, default=MaintenanceChoices.PREVENTIVE)
     start_date = models.DateField()
     end_date = models.DateField()
     cost = models.DecimalField(max_digits=10, decimal_places=2)
@@ -60,3 +66,8 @@ class MaintenanceReport(models.Model):
         super().save(*args, **kwargs)
         self.vehicle.mileage = self.mileage
         self.vehicle.save()
+
+    @property
+    def total_cost(self):
+        parts_cost = sum(part.cost for part in self.parts.all())
+        return self.cost + parts_cost
