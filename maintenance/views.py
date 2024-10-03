@@ -292,3 +292,18 @@ class MaintenanceReportOverviewView(APIView):
                                                                    user=request.user.userprofile) if month == 1 else self.get_maintenance_report(
                 month=month, year=year, user=request.user.userprofile)
             return Response({"previous_month": report_of_previous_month, "current_month": report_of_current_month}, status=status.HTTP_200_OK)
+
+
+class GeneralMaintenanceDataView(APIView):
+    permission_classes = [IsAuthenticated, ]
+
+    def get(self, request):
+        serialized_parts = PartSerializer(Part.objects.all(), many=True, context={'request': request})
+        serialized_service_providers = ServiceProviderSerializer(ServiceProvider.objects.all(), many=True, context={'request': request})
+        serialized_parts_providers = PartsProviderSerializer(PartsProvider.objects.all(), many=True, context={'request': request})
+        return Response(
+            {"parts": serialized_parts.data,
+             "service_providers": serialized_service_providers.data,
+             "part_providers": serialized_parts_providers.data
+             },
+            status=status.HTTP_200_OK)

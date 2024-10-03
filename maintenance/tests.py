@@ -514,3 +514,24 @@ class MaintenanceReportOverviewTestCases(APITestCase):
         self.assertIn("current_month", response.data)
         self.assertEqual(response.data["current_month"]["total_maintenance"],
                          len(MaintenanceReport.objects.filter(profile=self.user_profile, start_date__month=1)))
+
+
+class GeneralMaintenanceDataTests(APITestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        cls.access_token = AccessToken.for_user(cls.user_profile.user)
+        cls.parts = PartFactory.create_batch(size=5)
+        cls.service_providers = ServiceProviderFactory.create_batch(size=5)
+        cls.parts_providers = PartsProviderFactory.create_batch(size=5)
+
+    def setUp(self):
+        self.client.cookies['access'] = self.access_token
+
+    def test_successful_data_retrieval(self):
+        response = self.client.get(reverse("general-data"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for key, items in (("parts", self.parts), ("service_providers", self.service_providers), ("part_providers", self.parts_providers)):
+            self.assertIn(key, response.data)
+            self.assertEqual(len(response.data[key]), len(items))

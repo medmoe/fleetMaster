@@ -2,7 +2,7 @@ from django.urls import path
 
 from .views import PartsListView, PartDetailsView, ServiceProviderListView, ServiceProviderDetailsView, PartsProvidersListView, \
     PartsProviderDetailsView, PartPurchaseEventsListView, PartPurchaseEventDetailsView, MaintenanceReportListView, MaintenanceReportDetailsView, \
-    MaintenanceReportOverviewView
+    MaintenanceReportOverviewView, GeneralMaintenanceDataView
 
 urlpatterns = [
     path('parts/', PartsListView.as_view(), name='parts'),
@@ -15,5 +15,6 @@ urlpatterns = [
     path('part-purchase-events/<int:pk>', PartPurchaseEventDetailsView.as_view(), name='part-purchase-event-details'),
     path('reports/', MaintenanceReportListView.as_view(), name='reports'),
     path('reports/<int:pk>', MaintenanceReportDetailsView.as_view(), name='reports-details'),
-    path('overview/', MaintenanceReportOverviewView.as_view(), name="overview")
+    path('overview/', MaintenanceReportOverviewView.as_view(), name="overview"),
+    path('general-data/', GeneralMaintenanceDataView.as_view(), name="general-data"),
 ]
