@@ -1,5 +1,6 @@
 import datetime
 
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.pagination import PageNumberPagination
@@ -7,11 +8,18 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, MaintenanceReport, MaintenanceChoices, ServiceChoices
-from .serializers import PartSerializer, ServiceProviderSerializer, PartsProviderSerializer, PartPurchaseEventSerializer, MaintenanceReportSerializer
+from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, MaintenanceReport
+from .serializers import PartSerializer, ServiceProviderSerializer, PartsProviderSerializer, \
+    PartPurchaseEventSerializer, MaintenanceReportSerializer
+from .utils import ReportSummarizer
 
 
-# Create your views here.
+# Constants
+DAYS_IN_A_WEEK = 7
+DAYS_IN_TWO_WEEKS = 14
+DAYS_IN_FOUR_WEEKS = 28
+DAYS_IN_THREE_MONTHS = 90
+DAYS_IN_A_YEAR = 365
 
 class PartsListView(APIView):
     permission_classes = [IsAuthenticated, ]
@@ -152,7 +160,8 @@ class PartPurchaseEventsListView(APIView):
         part_purchase_events = PartPurchaseEvent.objects.filter(profile__user=request.user).order_by('purchase_date')
         paginator = PageNumberPagination()
         paginated_part_purchase_events = paginator.paginate_queryset(part_purchase_events, request)
-        serializer = PartPurchaseEventSerializer(paginated_part_purchase_events, many=True, context={"request": request})
+        serializer = PartPurchaseEventSerializer(paginated_part_purchase_events, many=True,
+                                                 context={"request": request})
         return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
@@ -241,57 +250,26 @@ class MaintenanceReportDetailsView(APIView):
 class MaintenanceReportOverviewView(APIView):
     permission_classes = [IsAuthenticated, ]
 
-    def get_maintenance_report(self, month=None, year=None, user=None):
-        if year:
-            total_maintenance_reports = MaintenanceReport.objects.filter(profile=user, start_date__year=year)
-        elif month:
-            total_maintenance_reports = MaintenanceReport.objects.filter(profile=user, start_date__month=month)
-        else:
-            total_maintenance_reports = MaintenanceReport.objects.all()
-
-        report = {
-            "total_maintenance": len(total_maintenance_reports),
-            "total_maintenance_cost": 0,
-            "preventive": 0,
-            "preventive_cost": 0,
-            "curative": 0,
-            "curative_cost": 0,
-            "total_service_cost": 0,
-            "mechanic": 0,
-            "electrician": 0,
-            "cleaning": 0
+    def fetch_and_summarize_reports(self, start_date_delta):
+        start_date = timezone.now() - datetime.timedelta(days=start_date_delta)
+        current_report = MaintenanceReport.objects.filter(start_date__gte=start_date)
+        previous_report = MaintenanceReport.objects.filter(start_date__lt=start_date)
+        return {
+            "previous_report": ReportSummarizer().summarize_reports(previous_report),
+            "current_report": ReportSummarizer().summarize_reports(current_report),
         }
-        for maintenance_report in total_maintenance_reports:
-            report["total_maintenance_cost"] += maintenance_report.total_cost
-            report["preventive"] += (1 if maintenance_report.maintenance_type == MaintenanceChoices.PREVENTIVE else 0)
-            report["preventive_cost"] += (
-                maintenance_report.total_cost if maintenance_report.maintenance_type == MaintenanceChoices.PREVENTIVE else 0)
-            report["curative"] += (1 if maintenance_report.maintenance_type == MaintenanceChoices.CURATIVE else 0)
-            report["curative_cost"] += (maintenance_report.total_cost if maintenance_report.maintenance_type == MaintenanceChoices.CURATIVE else 0)
-            report["total_service_cost"] += maintenance_report.cost
-            report["mechanic"] += (maintenance_report.cost if maintenance_report.service_provider.service_type == ServiceChoices.MECHANIC else 0)
-            report["electrician"] += (
-                maintenance_report.cost if maintenance_report.service_provider.service_type == ServiceChoices.ELECTRICIAN else 0)
-            report["cleaning"] += (maintenance_report.cost if maintenance_report.service_provider.service_type == ServiceChoices.CLEANING else 0)
-
-        return report
 
     def get(self, request):
-        year = request.GET.get('year')
-        month = request.GET.get('month')
-
-        if year:
-            report_of_current_year = self.get_maintenance_report(year=year, user=request.user.userprofile)
-            report_of_previous_year = self.get_maintenance_report(year=year - 1, user=request.user.userprofile)
-            return Response({"previous_year": report_of_previous_year, "current_year": report_of_current_year}, status=status.HTTP_200_OK)
-
-        if month:
-            year = datetime.date.today().year
-            report_of_current_month = self.get_maintenance_report(month=month, user=request.user.userprofile)
-            report_of_previous_month = self.get_maintenance_report(month=12, year=year - 1,
-                                                                   user=request.user.userprofile) if month == 1 else self.get_maintenance_report(
-                month=month, year=year, user=request.user.userprofile)
-            return Response({"previous_month": report_of_previous_month, "current_month": report_of_current_month}, status=status.HTTP_200_OK)
+        date_ranges = {
+            "7d": DAYS_IN_A_WEEK,
+            "2w": DAYS_IN_TWO_WEEKS,
+            "4w": DAYS_IN_FOUR_WEEKS,
+            "3m": DAYS_IN_THREE_MONTHS,
+            "1y": DAYS_IN_A_YEAR,
+        }
+        range_selected = request.GET.get('range')
+        summarized_data = self.fetch_and_summarize_reports(date_ranges[range_selected])
+        return Response(summarized_data, status=status.HTTP_200_OK)
 
 
 class GeneralMaintenanceDataView(APIView):
@@ -299,8 +277,10 @@ class GeneralMaintenanceDataView(APIView):
 
     def get(self, request):
         serialized_parts = PartSerializer(Part.objects.all(), many=True, context={'request': request})
-        serialized_service_providers = ServiceProviderSerializer(ServiceProvider.objects.all(), many=True, context={'request': request})
-        serialized_parts_providers = PartsProviderSerializer(PartsProvider.objects.all(), many=True, context={'request': request})
+        serialized_service_providers = ServiceProviderSerializer(ServiceProvider.objects.all(), many=True,
+                                                                 context={'request': request})
+        serialized_parts_providers = PartsProviderSerializer(PartsProvider.objects.all(), many=True,
+                                                             context={'request': request})
         return Response(
             {"parts": serialized_parts.data,
              "service_providers": serialized_service_providers.data,

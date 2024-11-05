@@ -9,7 +9,8 @@ from rest_framework_simplejwt.tokens import AccessToken
 from accounts.factories import UserProfileFactory
 from accounts.models import UserProfile
 from vehicles.factories import VehicleFactory
-from .factories import PartFactory, PartsProviderFactory, ServiceProviderFactory, PartPurchaseEventFactory, MaintenanceReportFactory
+from .factories import PartFactory, PartsProviderFactory, ServiceProviderFactory, PartPurchaseEventFactory, \
+    MaintenanceReportFactory
 from .models import Part, PartsProvider, ServiceProvider, PartPurchaseEvent, MaintenanceReport
 
 
@@ -170,7 +171,8 @@ class ServiceProviderDetailsTestCases(APITestCase):
             "name": "updated service provider name",
             "address": "updated address",
         }
-        response = self.client.put(reverse('service-provider-details', args=[self.service_provider.id]), updated_service_provider, format='json')
+        response = self.client.put(reverse('service-provider-details', args=[self.service_provider.id]),
+                                   updated_service_provider, format='json')
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         for key, value in updated_service_provider.items():
             self.assertEqual(getattr(ServiceProvider.objects.get(id=self.service_provider.id), key), value)
@@ -180,7 +182,8 @@ class ServiceProviderDetailsTestCases(APITestCase):
             "name": "updated service provider name",
             "address": "updated address",
         }
-        response = self.client.put(reverse('service-provider-details', args=['9999']), updated_service_provider, format='json')
+        response = self.client.put(reverse('service-provider-details', args=['9999']), updated_service_provider,
+                                   format='json')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_successful_service_provider_delete(self):
@@ -206,7 +209,8 @@ class ServiceProviderDetailsTestCases(APITestCase):
             "name": "test service provider name",
             "address": "updated address",
         }
-        response = self.client.put(reverse('service-provider-details', args=[self.service_provider.id]), updated_service_provider, format="json")
+        response = self.client.put(reverse('service-provider-details', args=[self.service_provider.id]),
+                                   updated_service_provider, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
         # Test DELETE method
@@ -261,7 +265,8 @@ class PartsProviderDetailsTestCases(APITestCase):
             "address": "updated address",
             "phone_number": "9298778585"
         }
-        response = self.client.put(reverse('parts-provider-details', args=[self.parts_provider.id]), updated_parts_provider, format='json')
+        response = self.client.put(reverse('parts-provider-details', args=[self.parts_provider.id]),
+                                   updated_parts_provider, format='json')
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         for key, value in updated_parts_provider.items():
             self.assertEqual(getattr(PartsProvider.objects.get(id=self.parts_provider.id), key), value)
@@ -271,7 +276,8 @@ class PartsProviderDetailsTestCases(APITestCase):
             "name": "updated parts provider name",
             "address": "updated address",
         }
-        response = self.client.put(reverse('parts-provider-details', args=['9999']), updated_parts_provider, format='json')
+        response = self.client.put(reverse('parts-provider-details', args=['9999']), updated_parts_provider,
+                                   format='json')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_successful_parts_provider_delete(self):
@@ -297,7 +303,8 @@ class PartsProviderDetailsTestCases(APITestCase):
             "name": "test parts provider name",
             "address": "updated address",
         }
-        response = self.client.put(reverse('parts-provider-details', args=[self.parts_provider.id]), updated_parts_provider, format="json")
+        response = self.client.put(reverse('parts-provider-details', args=[self.parts_provider.id]),
+                                   updated_parts_provider, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
         # Test DELETE method
@@ -379,7 +386,8 @@ class PartPurchaseEventDetailsTestCases(APITestCase):
         self.assertTrue(response.data)
 
     def test_failed_retrieval_of_not_own_part_purchase_event(self):
-        response = self.client.get(reverse('part-purchase-event-details', args=[self.other_part_purchase_event_to_query.id]))
+        response = self.client.get(
+            reverse('part-purchase-event-details', args=[self.other_part_purchase_event_to_query.id]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_successful_update_of_part_purchase_event(self):
@@ -391,11 +399,13 @@ class PartPurchaseEventDetailsTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
 
     def test_failed_update_of_not_own_part_purchase_event(self):
-        response = self.client.put(reverse('part-purchase-event-details', args=[self.other_part_purchase_event_to_query.id]))
+        response = self.client.put(
+            reverse('part-purchase-event-details', args=[self.other_part_purchase_event_to_query.id]))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_successful_deletion_of_part_purchase_event(self):
-        response = self.client.delete(reverse('part-purchase-event-details', args=[self.part_purchase_event_to_query.id]))
+        response = self.client.delete(
+            reverse('part-purchase-event-details', args=[self.part_purchase_event_to_query.id]))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(PartPurchaseEvent.objects.filter(id=self.part_purchase_event_to_query.id).first())
 
@@ -409,7 +419,8 @@ class PartPurchaseEventDetailsTestCases(APITestCase):
             format='json'
         )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        response = self.client.delete(reverse('part-purchase-event-details', args=[self.part_purchase_event_to_query.id]))
+        response = self.client.delete(
+            reverse('part-purchase-event-details', args=[self.part_purchase_event_to_query.id]))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
@@ -484,7 +495,8 @@ class MaintenanceReportDetailsTestCases(APITestCase):
             "description": "description",
             "mileage": 55555,
         }
-        response = self.client.put(reverse('reports-details', args=[self.maintenance_report.id]), data=data, format='json')
+        response = self.client.put(reverse('reports-details', args=[self.maintenance_report.id]), data=data,
+                                   format='json')
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
 
     def test_successful_maintenance_report_deletion(self):
@@ -502,18 +514,17 @@ class MaintenanceReportOverviewTestCases(APITestCase):
         cls.service_providers = ServiceProviderFactory.create_batch(size=5)
         cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=5)
         cls.maintenance_reports = MaintenanceReportFactory.create_batch(size=15, profile=cls.user_profile,
-                                                                        service_provider=random.choice(cls.service_providers))
+                                                                        service_provider=random.choice(
+                                                                            cls.service_providers))
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token
 
     def test_successful_maintenance_report_retrieval(self):
-        response = self.client.get(reverse('overview'), {"month": 1})
+        response = self.client.get(reverse('overview'), {"range": "7d"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("previous_month", response.data)
-        self.assertIn("current_month", response.data)
-        self.assertEqual(response.data["current_month"]["total_maintenance"],
-                         len(MaintenanceReport.objects.filter(profile=self.user_profile, start_date__month=1)))
+        self.assertIn("previous_report", response.data)
+        self.assertIn("current_report", response.data)
 
 
 class GeneralMaintenanceDataTests(APITestCase):
@@ -532,6 +543,7 @@ class GeneralMaintenanceDataTests(APITestCase):
     def test_successful_data_retrieval(self):
         response = self.client.get(reverse("general-data"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        for key, items in (("parts", self.parts), ("service_providers", self.service_providers), ("part_providers", self.parts_providers)):
+        for key, items in (
+        ("parts", self.parts), ("service_providers", self.service_providers), ("part_providers", self.parts_providers)):
             self.assertIn(key, response.data)
             self.assertEqual(len(response.data[key]), len(items))

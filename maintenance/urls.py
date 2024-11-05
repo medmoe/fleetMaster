@@ -12,9 +12,9 @@ urlpatterns = [
     path('parts-providers/', PartsProvidersListView.as_view(), name='parts-providers'),
     path('parts-providers/<int:pk>/', PartsProviderDetailsView.as_view(), name="parts-provider-details"),
     path('part-purchase-events/', PartPurchaseEventsListView.as_view(), name='part-purchase-events'),
-    path('part-purchase-events/<int:pk>', PartPurchaseEventDetailsView.as_view(), name='part-purchase-event-details'),
+    path('part-purchase-events/<int:pk>/', PartPurchaseEventDetailsView.as_view(), name='part-purchase-event-details'),
     path('reports/', MaintenanceReportListView.as_view(), name='reports'),
-    path('reports/<int:pk>', MaintenanceReportDetailsView.as_view(), name='reports-details'),
+    path('reports/<int:pk>/', MaintenanceReportDetailsView.as_view(), name='reports-details'),
     path('overview/', MaintenanceReportOverviewView.as_view(), name="overview"),
     path('general-data/', GeneralMaintenanceDataView.as_view(), name="general-data"),
 ]
