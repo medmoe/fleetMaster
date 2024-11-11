@@ -54,7 +54,7 @@ class MaintenanceReport(models.Model):
     profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE)
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='maintenance_reports')
     service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE, related_name='maintenance_reports')
-    parts = models.ManyToManyField(PartPurchaseEvent, related_name='maintenance_reports')
+    parts = models.ManyToManyField(PartPurchaseEvent, related_name='maintenance_reports', blank=True)
     maintenance_type = models.CharField(max_length=50, choices=MaintenanceChoices.choices, default=MaintenanceChoices.PREVENTIVE)
     start_date = models.DateField()
     end_date = models.DateField()

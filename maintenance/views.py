@@ -200,6 +200,21 @@ class PartPurchaseEventDetailsView(APIView):
         part_purchase_event.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+class PartPurchaseEventBulkOperations(APIView):
+    def delete(self, request):
+        ids_params = request.query_params.get('ids', None)
+        if not ids_params:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        try:
+            ids = [int(id) for id in ids_params.split(',')]
+        except ValueError:
+            return Response(data={"Error": "Invalid IDs format"}, status=status.HTTP_400_BAD_REQUEST)
+
+        events_to_delete = PartPurchaseEvent.objects.filter(id__in=ids)
+        deleted_count, _ = events_to_delete.delete()
+        if deleted_count == 0:
+            return Response({"Error", "No matching records found"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"Message": f"{deleted_count} records deleted successfully"}, status=status.HTTP_200_OK)
 
 class MaintenanceReportListView(APIView):
     permission_classes = [IsAuthenticated, ]
@@ -252,11 +267,18 @@ class MaintenanceReportOverviewView(APIView):
 
     def fetch_and_summarize_reports(self, start_date_delta):
         start_date = timezone.now() - datetime.timedelta(days=start_date_delta)
-        current_report = MaintenanceReport.objects.filter(start_date__gte=start_date)
+        current_report = MaintenanceReport.objects.filter(start_date__gte=start_date).prefetch_related('parts')
         previous_report = MaintenanceReport.objects.filter(start_date__lt=start_date)
+        all_part_purchase_events = []
+        for report in current_report:
+            part_purchase_events = report.parts.all()
+            serialize_events = PartPurchaseEventSerializer(part_purchase_events, many=True).data
+            all_part_purchase_events.extend(serialize_events)
+
         return {
             "previous_report": ReportSummarizer().summarize_reports(previous_report),
             "current_report": ReportSummarizer().summarize_reports(current_report),
+            "part_purchase_events": all_part_purchase_events,
         }
 
     def get(self, request):

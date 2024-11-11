@@ -341,6 +341,10 @@ class PartPurchaseEventsListTestCases(APITestCase):
         response = self.client.get(reverse("part-purchase-events"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], len(self.part_purchase_events))
+        self.assertIn('results', response.data)
+        for part_purchase_event in response.data['results']:
+            self.assertIn('provider_details', part_purchase_event)
+            self.assertIn('part_details', part_purchase_event)
 
     def test_successful_creation_of_purchase_event(self):
         response = self.client.post(reverse("part-purchase-events"), data=self.part_purchase_event_data, format='json')
@@ -384,6 +388,8 @@ class PartPurchaseEventDetailsTestCases(APITestCase):
         response = self.client.get(reverse('part-purchase-event-details', args=[self.part_purchase_event_to_query.id]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data)
+        self.assertIn('provider_details', response.data)
+        self.assertIn('part_details', response.data)
 
     def test_failed_retrieval_of_not_own_part_purchase_event(self):
         response = self.client.get(
@@ -525,6 +531,10 @@ class MaintenanceReportOverviewTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("previous_report", response.data)
         self.assertIn("current_report", response.data)
+        self.assertIn("part_purchase_events", response.data)
+        for part_purchase_event in response.data['part_purchase_events']:
+            self.assertIn("provider", part_purchase_event)
+            self.assertIn("part", part_purchase_event)
 
 
 class GeneralMaintenanceDataTests(APITestCase):
@@ -544,6 +554,27 @@ class GeneralMaintenanceDataTests(APITestCase):
         response = self.client.get(reverse("general-data"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         for key, items in (
-        ("parts", self.parts), ("service_providers", self.service_providers), ("part_providers", self.parts_providers)):
+                ("parts", self.parts), ("service_providers", self.service_providers), ("part_providers", self.parts_providers)):
             self.assertIn(key, response.data)
             self.assertEqual(len(response.data[key]), len(items))
+
+class PartPurchaseEventBulkOperationsTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        cls.access_token = AccessToken.for_user(cls.user_profile.user)
+        cls.parts = PartFactory.create_batch(size=5)
+        cls.parts_providers = PartsProviderFactory.create_batch(size=5)
+        cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=10)
+
+    def setUp(self):
+        self.client.cookies['access'] = self.access_token
+
+    def test_successful_bulk_deletion(self):
+        events_to_delete = [str(event.id) for event in self.part_purchase_events]
+        query_string = f"?ids={','.join(map(str, events_to_delete))}"
+        url = f'{reverse("part-purchase-events-bulk")}{query_string}'
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(PartPurchaseEvent.objects.count(), 0)
+

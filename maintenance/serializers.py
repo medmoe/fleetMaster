@@ -22,6 +22,11 @@ class PartsProviderSerializer(serializers.ModelSerializer):
 
 
 class PartPurchaseEventSerializer(serializers.ModelSerializer):
+    provider = serializers.PrimaryKeyRelatedField(queryset=PartsProvider.objects.all())
+    part = serializers.PrimaryKeyRelatedField(queryset=Part.objects.all())
+    provider_details = PartsProviderSerializer(source='provider', read_only=True)
+    part_details = PartSerializer(source='part', read_only=True)
+
     class Meta:
         model = PartPurchaseEvent
         fields = "__all__"
