@@ -265,8 +265,8 @@ class MaintenanceReportDetailsView(APIView):
 class MaintenanceReportOverviewView(APIView):
     permission_classes = [IsAuthenticated, ]
 
-    def fetch_and_summarize_reports(self, start_date_delta):
-        start_date = timezone.now() - datetime.timedelta(days=start_date_delta)
+    def fetch_and_summarize_reports(self):
+        start_date = timezone.now() - datetime.timedelta(days=DAYS_IN_A_YEAR)
         current_report = MaintenanceReport.objects.filter(start_date__gte=start_date).prefetch_related('parts')
         previous_report = MaintenanceReport.objects.filter(start_date__lt=start_date)
         all_part_purchase_events = []
@@ -282,15 +282,7 @@ class MaintenanceReportOverviewView(APIView):
         }
 
     def get(self, request):
-        date_ranges = {
-            "7d": DAYS_IN_A_WEEK,
-            "2w": DAYS_IN_TWO_WEEKS,
-            "4w": DAYS_IN_FOUR_WEEKS,
-            "3m": DAYS_IN_THREE_MONTHS,
-            "1y": DAYS_IN_A_YEAR,
-        }
-        range_selected = request.GET.get('range')
-        summarized_data = self.fetch_and_summarize_reports(date_ranges[range_selected])
+        summarized_data = self.fetch_and_summarize_reports()
         return Response(summarized_data, status=status.HTTP_200_OK)
 
 

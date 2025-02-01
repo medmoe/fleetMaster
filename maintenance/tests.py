@@ -527,7 +527,7 @@ class MaintenanceReportOverviewTestCases(APITestCase):
         self.client.cookies['access'] = self.access_token
 
     def test_successful_maintenance_report_retrieval(self):
-        response = self.client.get(reverse('overview'), {"range": "7d"})
+        response = self.client.get(reverse('overview'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("previous_report", response.data)
         self.assertIn("current_report", response.data)
