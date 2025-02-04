@@ -1,6 +1,7 @@
 import datetime
 
-from django.utils import timezone
+from django.db import transaction
+from django.utils.timezone import now
 from rest_framework import status
 from rest_framework.exceptions import ValidationError, NotFound
 from rest_framework.pagination import PageNumberPagination
@@ -13,13 +14,13 @@ from .serializers import PartSerializer, ServiceProviderSerializer, PartsProvide
     PartPurchaseEventSerializer, MaintenanceReportSerializer
 from .utils import ReportSummarizer
 
-
 # Constants
 DAYS_IN_A_WEEK = 7
 DAYS_IN_TWO_WEEKS = 14
 DAYS_IN_FOUR_WEEKS = 28
 DAYS_IN_THREE_MONTHS = 90
 DAYS_IN_A_YEAR = 365
+
 
 class PartsListView(APIView):
     permission_classes = [IsAuthenticated, ]
@@ -200,6 +201,7 @@ class PartPurchaseEventDetailsView(APIView):
         part_purchase_event.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class PartPurchaseEventBulkOperations(APIView):
     def delete(self, request):
         ids_params = request.query_params.get('ids', None)
@@ -215,6 +217,7 @@ class PartPurchaseEventBulkOperations(APIView):
         if deleted_count == 0:
             return Response({"Error", "No matching records found"}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"Message": f"{deleted_count} records deleted successfully"}, status=status.HTTP_200_OK)
+
 
 class MaintenanceReportListView(APIView):
     permission_classes = [IsAuthenticated, ]
@@ -257,28 +260,41 @@ class MaintenanceReportDetailsView(APIView):
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
-        maintenance_report = self.get_object(pk, request.user)
-        maintenance_report.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        try:
+            with transaction.atomic():
+                maintenance_report = self.get_object(pk, request.user)
+                maintenance_report.part_purchase_events.all().delete()
+                maintenance_report.service_provider_events.all().delete()
+                maintenance_report.vehicle_events.all().delete()
+                maintenance_report.delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class MaintenanceReportOverviewView(APIView):
     permission_classes = [IsAuthenticated, ]
 
-    def fetch_and_summarize_reports(self):
-        start_date = timezone.now() - datetime.timedelta(days=DAYS_IN_A_YEAR)
-        current_report = MaintenanceReport.objects.filter(start_date__gte=start_date).prefetch_related('parts')
-        previous_report = MaintenanceReport.objects.filter(start_date__lt=start_date)
-        all_part_purchase_events = []
-        for report in current_report:
-            part_purchase_events = report.parts.all()
-            serialize_events = PartPurchaseEventSerializer(part_purchase_events, many=True).data
-            all_part_purchase_events.extend(serialize_events)
-
+    def get_queryset(self):
+        """
+        Fetch maintenance reports
+        """
+        current_year = now().year
+        start_date = datetime.date(current_year - 1, 1, 1)  # January 1st of the previous year
+        end_date = datetime.date(current_year, 12, 31)  # December 31st of the current year
         return {
-            "previous_report": ReportSummarizer().summarize_reports(previous_report),
-            "current_report": ReportSummarizer().summarize_reports(current_report),
-            "part_purchase_events": all_part_purchase_events,
+            "current": MaintenanceReport.objects.filter(profile__user=self.request.user, start_date__gte=start_date, start_date__lte=end_date,
+                                                        start_date__year=current_year),
+            "previous": MaintenanceReport.objects.filter(profile__user=self.request.user, start_date__gte=start_date, start_date__lte=end_date,
+                                                         start_date__year=current_year - 1),
+        }
+
+    def fetch_and_summarize_reports(self):
+        report_queryset = self.get_queryset()
+        summarizer = ReportSummarizer()
+        return {
+            "previous_report": summarizer.summarize_reports(report_queryset["previous"]),
+            "current_report": summarizer.summarize_reports(report_queryset["current"]),
         }
 
     def get(self, request):

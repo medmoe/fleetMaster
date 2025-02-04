@@ -1,4 +1,7 @@
+from django.db.models import Sum
+
 from .models import MaintenanceChoices, ServiceChoices
+
 
 class ReportSummarizer:
     TOTAL_MAINTENANCE = "total_maintenance"
@@ -42,7 +45,7 @@ class ReportSummarizer:
 
     def update_costs(self, report, maintenance_report):
         report[self.TOTAL_MAINTENANCE_COST] += maintenance_report.total_cost
-        report[self.TOTAL_SERVICE_COST] += maintenance_report.cost
+        report[self.TOTAL_SERVICE_COST] += maintenance_report.service_provider_events.aggregate(Sum('cost'))["cost__sum"] or 0
 
     def update_maintenance_type_counts(self, report, maintenance_report):
         if maintenance_report.maintenance_type == MaintenanceChoices.PREVENTIVE:
@@ -53,9 +56,12 @@ class ReportSummarizer:
             report[self.CURATIVE_COST] += maintenance_report.total_cost
 
     def update_service_provider_counts(self, report, maintenance_report):
-        if maintenance_report.service_provider.service_type == ServiceChoices.MECHANIC:
-            report[self.MECHANIC] += maintenance_report.cost
-        elif maintenance_report.service_provider.service_type == ServiceChoices.ELECTRICIAN:
-            report[self.ELECTRICIAN] += maintenance_report.cost
-        elif maintenance_report.service_provider.service_type == ServiceChoices.CLEANING:
-            report[self.CLEANING] += maintenance_report.cost
+        service_type_mapping = {
+            ServiceChoices.MECHANIC: self.MECHANIC,
+            ServiceChoices.ELECTRICIAN: self.ELECTRICIAN,
+            ServiceChoices.CLEANING: self.CLEANING,
+        }
+        for service_provider_event in maintenance_report.service_provider_events.all():
+            service_type = service_provider_event.service_provider.service_type
+            if service_type in service_type_mapping:
+                report[service_type_mapping[service_type]] += 1

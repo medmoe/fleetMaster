@@ -1,7 +1,9 @@
 import datetime
 import random
 
+import factory
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
@@ -10,7 +12,7 @@ from accounts.factories import UserProfileFactory
 from accounts.models import UserProfile
 from vehicles.factories import VehicleFactory
 from .factories import PartFactory, PartsProviderFactory, ServiceProviderFactory, PartPurchaseEventFactory, \
-    MaintenanceReportFactory
+    MaintenanceReportFactory, ServiceProviderEventFactory, VehicleEventFactory
 from .models import Part, PartsProvider, ServiceProvider, PartPurchaseEvent, MaintenanceReport
 
 
@@ -438,21 +440,40 @@ class MaintenanceReportListViewTestCases(APITestCase):
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
         cls.vehicle = VehicleFactory.create(profile=cls.user_profile)
         cls.service_provider = ServiceProviderFactory.create()
-        cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=10)
-        cls.maintenance_reports = MaintenanceReportFactory.create_batch(size=10, profile=cls.user_profile)
+        cls.maintenance_reports = MaintenanceReportFactory.create_batch(size=5, profile=cls.user_profile)
+        cls.parts = PartFactory.create_batch(size=20)
+        cls.parts_provider = PartsProviderFactory.create()
+        cls.part_purchase_events = [PartPurchaseEventFactory.create(part=part,
+                                                                    provider=cls.parts_provider,
+                                                                    maintenance_report=cls.maintenance_reports[0]) for
+                                    part in cls.parts]
+        cls.service_provider_event = ServiceProviderEventFactory(maintenance_report=cls.maintenance_reports[0])
+        cls.vehicle_event = VehicleEventFactory(maintenance_report=cls.maintenance_reports[0])
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token
         self.maintenance_report_data = {
             "profile": self.user_profile.id,
-            "vehicle": self.vehicle.id,
-            "service_provider": self.service_provider.id,
-            "parts": [part_purchase_event.id for part_purchase_event in self.part_purchase_events],
             "start_date": datetime.date(2020, 12, 27).isoformat(),
             "end_date": datetime.date(2020, 12, 31).isoformat(),
-            "cost": random.randint(0, 10 ** 8),
             "description": "description",
             "mileage": 55555,
+            "part_purchase_events": [
+                {
+                    "part": self.parts[0].id,
+                    "provider": self.parts_provider.id,
+                    "purchase_date": datetime.date(2020, 12, 31).isoformat(),
+                    "cost": 2000}
+            ],
+            "service_provider_events": [
+                {
+                    "service_date": datetime.date(2020, 12, 31).isoformat(),
+                    "cost": 2000,
+                    "description": "description", }
+            ],
+            "vehicle_events": [
+                {"vehicle": self.vehicle.id, }
+            ]
         }
 
     def test_successful_retrieval_of_maintenance_reports(self):
@@ -482,26 +503,40 @@ class MaintenanceReportDetailsTestCases(APITestCase):
         cls.service_provider = ServiceProviderFactory.create()
         cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=10)
         cls.maintenance_report = MaintenanceReportFactory.create(profile=cls.user_profile)
+        cls.part = PartFactory.create()
+        cls.parts_provider = PartsProviderFactory.create()
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token
+        self.data = {
+            "start_date": datetime.date(2020, 12, 27).isoformat(),
+            "end_date": datetime.date(2020, 12, 31).isoformat(),
+            "cost": random.randint(0, 10 ** 8),
+            "description": "description",
+            "mileage": 55555,
+            "part_purchase_events": [
+                {
+                    "part": self.part.id,
+                    "provider": self.parts_provider.id,
+                    "purchase_date": datetime.date(2020, 12, 31).isoformat(),
+                    "cost": 2000}
+            ],
+            "service_provider_events": [
+                {"service_date": datetime.date(2020, 12, 31).isoformat(),
+                 "cost": 2000,
+                 "description": "updated description", }
+            ],
+            "vehicle_events": [
+                {"vehicle": self.vehicle.id, }
+            ]
+        }
 
     def test_successful_maintenance_report_retrieval(self):
         response = self.client.get(reverse('reports-details', args=[self.maintenance_report.id]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_successful_maintenance_report_update(self):
-        data = {
-            "vehicle": self.vehicle.id,
-            "service_provider": self.service_provider.id,
-            "parts": [part.id for part in self.part_purchase_events],
-            "start_date": datetime.date(2020, 12, 27).isoformat(),
-            "end_date": datetime.date(2020, 12, 31).isoformat(),
-            "cost": random.randint(0, 10 ** 8),
-            "description": "description",
-            "mileage": 55555,
-        }
-        response = self.client.put(reverse('reports-details', args=[self.maintenance_report.id]), data=data,
+        response = self.client.put(reverse('reports-details', args=[self.maintenance_report.id]), data=self.data,
                                    format='json')
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
 
@@ -514,14 +549,20 @@ class MaintenanceReportOverviewTestCases(APITestCase):
 
     @classmethod
     def setUpTestData(cls):
+        current_year = timezone.now().year
+        previous_year = current_year - 1
+
         cls.user_profile = UserProfileFactory.create()
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
         cls.vehicle = VehicleFactory.create(profile=cls.user_profile)
         cls.service_providers = ServiceProviderFactory.create_batch(size=5)
-        cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=5)
-        cls.maintenance_reports = MaintenanceReportFactory.create_batch(size=15, profile=cls.user_profile,
-                                                                        service_provider=random.choice(
-                                                                            cls.service_providers))
+        cls.current_maintenance_reports = MaintenanceReportFactory.create_batch(size=10, profile=cls.user_profile, start_date=factory.LazyFunction(
+            lambda: datetime.date(current_year, random.randint(1, 12), random.randint(1, 28))))
+        cls.previous_maintenance_reports = MaintenanceReportFactory.create_batch(size=5, profile=cls.user_profile, start_date=factory.LazyFunction(
+            lambda: datetime.date(previous_year, random.randint(1, 12), random.randint(1, 28))))
+        cls.part_purchase_event = PartPurchaseEventFactory.create(maintenance_report=cls.current_maintenance_reports[0])
+        cls.service_provider_event = ServiceProviderEventFactory(maintenance_report=cls.current_maintenance_reports[0])
+        cls.vehicle_event = VehicleEventFactory(maintenance_report=cls.current_maintenance_reports[0])
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token
@@ -531,10 +572,7 @@ class MaintenanceReportOverviewTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("previous_report", response.data)
         self.assertIn("current_report", response.data)
-        self.assertIn("part_purchase_events", response.data)
-        for part_purchase_event in response.data['part_purchase_events']:
-            self.assertIn("provider", part_purchase_event)
-            self.assertIn("part", part_purchase_event)
+        self.assertEqual(response.data['current_report']['total_maintenance_cost'], self.part_purchase_event.cost + self.service_provider_event.cost)
 
 
 class GeneralMaintenanceDataTests(APITestCase):
@@ -554,9 +592,11 @@ class GeneralMaintenanceDataTests(APITestCase):
         response = self.client.get(reverse("general-data"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         for key, items in (
-                ("parts", self.parts), ("service_providers", self.service_providers), ("part_providers", self.parts_providers)):
+                ("parts", self.parts), ("service_providers", self.service_providers),
+                ("part_providers", self.parts_providers)):
             self.assertIn(key, response.data)
             self.assertEqual(len(response.data[key]), len(items))
+
 
 class PartPurchaseEventBulkOperationsTests(APITestCase):
     @classmethod
@@ -577,4 +617,3 @@ class PartPurchaseEventBulkOperationsTests(APITestCase):
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(PartPurchaseEvent.objects.count(), 0)
-
