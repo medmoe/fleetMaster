@@ -39,6 +39,7 @@ class PartsProviderFactory(factory.django.DjangoModelFactory):
 class MaintenanceReportFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = MaintenanceReport
+        skip_postgeneration_save = True
 
     profile = factory.SubFactory("accounts.factories.UserProfileFactory")
     maintenance_type = factory.Iterator([choice[0] for choice in MaintenanceChoices.choices])
@@ -52,13 +53,14 @@ class MaintenanceReportFactory(factory.django.DjangoModelFactory):
         if create and extracted:
             for service_event in extracted:
                 ServiceProviderEventFactory(maintenance_report=self, **service_event)
+        self.save()
 
     @factory.post_generation
     def part_purchase_events(self, create, extracted, **kwargs):
         if create and extracted:
             for part_purchase_event in extracted:
                 PartPurchaseEventFactory(maintenance_report=self, **part_purchase_event)
-
+        self.save()
 
 class PartPurchaseEventFactory(factory.django.DjangoModelFactory):
     class Meta:
