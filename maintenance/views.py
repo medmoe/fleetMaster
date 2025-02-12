@@ -265,7 +265,6 @@ class MaintenanceReportDetailsView(APIView):
                 maintenance_report = self.get_object(pk, request.user)
                 maintenance_report.part_purchase_events.all().delete()
                 maintenance_report.service_provider_events.all().delete()
-                maintenance_report.vehicle_events.all().delete()
                 maintenance_report.delete()
                 return Response(status=status.HTTP_204_NO_CONTENT)
         except Exception as e:

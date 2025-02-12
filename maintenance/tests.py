@@ -11,7 +11,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from accounts.factories import UserProfileFactory
 from vehicles.factories import VehicleFactory
 from .factories import PartFactory, PartsProviderFactory, ServiceProviderFactory, PartPurchaseEventFactory, \
-    MaintenanceReportFactory, ServiceProviderEventFactory, VehicleEventFactory
+    MaintenanceReportFactory, ServiceProviderEventFactory
 from .models import Part, PartsProvider, ServiceProvider, MaintenanceReport
 
 
@@ -329,12 +329,12 @@ class MaintenanceReportListViewTestCases(APITestCase):
                                                                     maintenance_report=cls.maintenance_reports[0]) for
                                     part in cls.parts]
         cls.service_provider_event = ServiceProviderEventFactory(maintenance_report=cls.maintenance_reports[0])
-        cls.vehicle_event = VehicleEventFactory(maintenance_report=cls.maintenance_reports[0])
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token
         self.maintenance_report_data = {
             "profile": self.user_profile.id,
+            "vehicle": self.vehicle.id,
             "start_date": datetime.date(2020, 12, 27).isoformat(),
             "end_date": datetime.date(2020, 12, 31).isoformat(),
             "description": "description",
@@ -353,9 +353,6 @@ class MaintenanceReportListViewTestCases(APITestCase):
                     "cost": 2000,
                     "description": "description", }
             ],
-            "vehicle_events": [
-                {"vehicle": self.vehicle.id, }
-            ]
         }
 
     def test_successful_retrieval_of_maintenance_reports(self):
@@ -365,7 +362,6 @@ class MaintenanceReportListViewTestCases(APITestCase):
 
     def test_creation_of_new_report(self):
         response = self.client.post(reverse("reports"), data=self.maintenance_report_data, format="json")
-        print(response.data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(MaintenanceReport.objects.count(), len(self.maintenance_reports) + 1)
 
@@ -397,6 +393,7 @@ class MaintenanceReportDetailsTestCases(APITestCase):
             "cost": random.randint(0, 10 ** 8),
             "description": "description",
             "mileage": 55555,
+            "vehicle": self.vehicle.id,
             "part_purchase_events": [
                 {
                     "part": self.part.id,
@@ -447,7 +444,6 @@ class MaintenanceReportOverviewTestCases(APITestCase):
             lambda: datetime.date(previous_year, random.randint(1, 12), random.randint(1, 28))))
         cls.part_purchase_event = PartPurchaseEventFactory.create(maintenance_report=cls.current_maintenance_reports[0])
         cls.service_provider_event = ServiceProviderEventFactory(maintenance_report=cls.current_maintenance_reports[0])
-        cls.vehicle_event = VehicleEventFactory(maintenance_report=cls.current_maintenance_reports[0])
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token

@@ -1,5 +1,5 @@
-from django.db import models, transaction
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.db.models import Sum
 
 
@@ -42,7 +42,8 @@ class PartsProvider(models.Model):
 
 
 class MaintenanceReport(models.Model):
-    profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE)
+    profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE, related_name='maintenance_reports')
+    vehicle = models.ForeignKey("vehicles.Vehicle", on_delete=models.CASCADE, related_name='maintenance_reports')
     maintenance_type = models.CharField(max_length=50, choices=MaintenanceChoices.choices, default=MaintenanceChoices.PREVENTIVE)
     start_date = models.DateField()
     end_date = models.DateField()
@@ -60,7 +61,6 @@ class MaintenanceReport(models.Model):
             raise ValidationError("End date cannot be before start date.")
 
 
-
 class PartPurchaseEvent(models.Model):
     part = models.ForeignKey(Part, on_delete=models.CASCADE)
     provider = models.ForeignKey(PartsProvider, on_delete=models.CASCADE)
@@ -69,6 +69,7 @@ class PartPurchaseEvent(models.Model):
     cost = models.DecimalField(max_digits=10, decimal_places=2)
     receipt = models.ImageField(upload_to='parts/%Y/%m/%d/', null=True)
 
+
 class ServiceProviderEvent(models.Model):
     maintenance_report = models.ForeignKey(MaintenanceReport, on_delete=models.CASCADE, related_name='service_provider_events')
     service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE)
@@ -76,10 +77,3 @@ class ServiceProviderEvent(models.Model):
     cost = models.DecimalField(max_digits=10, decimal_places=2)
     receipt = models.ImageField(upload_to='services/%Y/%m/%d/', null=True)
     description = models.TextField(blank=True)
-
-class VehicleEvent(models.Model):
-    maintenance_report = models.ForeignKey(MaintenanceReport, on_delete=models.CASCADE, related_name='vehicle_events')
-    vehicle = models.ForeignKey("vehicles.Vehicle", on_delete=models.CASCADE)
-
-
-

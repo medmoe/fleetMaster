@@ -1,8 +1,7 @@
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, MaintenanceReport, ServiceProviderEvent, \
-    VehicleEvent
+from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, MaintenanceReport, ServiceProviderEvent
 
 
 class PartSerializer(serializers.ModelSerializer):
@@ -37,16 +36,9 @@ class PartPurchaseEventSerializer(serializers.ModelSerializer):
 
 class ServiceProviderEventSerializer(serializers.ModelSerializer):
     maintenance_report = serializers.PrimaryKeyRelatedField(queryset=MaintenanceReport.objects.all(), required=False)
+
     class Meta:
         model = ServiceProviderEvent
-        fields = "__all__"
-        read_only_fields = ['profile']
-
-
-class VehicleEventSerializer(serializers.ModelSerializer):
-    maintenance_report = serializers.PrimaryKeyRelatedField(queryset=MaintenanceReport.objects.all(), required=False)
-    class Meta:
-        model = VehicleEvent
         fields = "__all__"
         read_only_fields = ['profile']
 
@@ -54,7 +46,6 @@ class VehicleEventSerializer(serializers.ModelSerializer):
 class MaintenanceReportSerializer(serializers.ModelSerializer):
     part_purchase_events = PartPurchaseEventSerializer(many=True, required=False)
     service_provider_events = ServiceProviderEventSerializer(many=True, required=False)
-    vehicle_events = VehicleEventSerializer(many=True, required=False)
 
     class Meta:
         model = MaintenanceReport
@@ -65,7 +56,6 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
         profile = self.context['request'].user.userprofile
         part_purchase_events_data = validated_data.pop('part_purchase_events', [])
         service_provider_events_data = validated_data.pop('service_provider_events', [])
-        vehicle_events_data = validated_data.pop('vehicle_events', [])
         try:
             with transaction.atomic():
                 maintenance_report = MaintenanceReport.objects.create(profile=profile, **validated_data)
@@ -75,9 +65,6 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
                 ServiceProviderEvent.objects.bulk_create(
                     [ServiceProviderEvent(maintenance_report=maintenance_report, **service_event_data)
                      for service_event_data in service_provider_events_data])
-                VehicleEvent.objects.bulk_create(
-                    [VehicleEvent(maintenance_report=maintenance_report, **vehicle_event_data) for
-                     vehicle_event_data in vehicle_events_data])
 
             return maintenance_report
         except Exception as e:
@@ -87,7 +74,6 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
         # Extract related data
         part_purchase_events_data = validated_data.pop('part_purchase_events', [])
         service_provider_events_data = validated_data.pop('service_provider_events', [])
-        vehicle_events_data = validated_data.pop('vehicle_events', [])
 
         def update_related_objects(manager, related_model, related_data):
             # Fetch existing objects in bulk
@@ -129,14 +115,11 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
                 update_related_objects(instance.part_purchase_events, PartPurchaseEvent, part_purchase_events_data)
                 update_related_objects(instance.service_provider_events, ServiceProviderEvent,
                                        service_provider_events_data)
-                update_related_objects(instance.vehicle_events, VehicleEvent, vehicle_events_data)
 
                 return instance
         except PartPurchaseEvent.DoesNotExist as e:
             raise serializers.ValidationError(f"PartPurchaseEvent not found: {e}")
         except ServiceProviderEvent.DoesNotExist as e:
             raise serializers.ValidationError(f"ServiceProviderEvent not found: {e}")
-        except VehicleEvent.DoesNotExist as e:
-            raise serializers.ValidationError(f"VehicleEvent not found: {e}")
         except Exception as e:
             raise serializers.ValidationError(f"Error updating maintenance report: {e}")

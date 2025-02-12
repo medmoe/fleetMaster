@@ -6,8 +6,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .serializers import UserProfileSerializer, CustomTokenObtainPairSerializer, ACCOUNT_NOT_FOUND_ERROR
-from .models import UserProfile
+from .serializers import UserProfileSerializer, CustomTokenObtainPairSerializer
 
 
 class SignUpView(APIView):

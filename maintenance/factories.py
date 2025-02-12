@@ -6,7 +6,7 @@ from faker import Faker
 faker = Faker()
 
 from .models import Part, PartsProvider, PartPurchaseEvent, ServiceProvider, ServiceChoices, MaintenanceReport, \
-    MaintenanceChoices, ServiceProviderEvent, VehicleEvent
+    MaintenanceChoices, ServiceProviderEvent
 
 
 class PartFactory(factory.django.DjangoModelFactory):
@@ -42,6 +42,7 @@ class MaintenanceReportFactory(factory.django.DjangoModelFactory):
         skip_postgeneration_save = True
 
     profile = factory.SubFactory("accounts.factories.UserProfileFactory")
+    vehicle = factory.SubFactory("vehicles.factories.VehicleFactory")
     maintenance_type = factory.Iterator([choice[0] for choice in MaintenanceChoices.choices])
     start_date = factory.LazyFunction(faker.date_object)
     end_date = factory.LazyAttribute(lambda obj: faker.date_between(start_date=obj.start_date, end_date=obj.start_date + datetime.timedelta(days=30)))
@@ -61,6 +62,7 @@ class MaintenanceReportFactory(factory.django.DjangoModelFactory):
             for part_purchase_event in extracted:
                 PartPurchaseEventFactory(maintenance_report=self, **part_purchase_event)
         self.save()
+
 
 class PartPurchaseEventFactory(factory.django.DjangoModelFactory):
     class Meta:
@@ -82,11 +84,3 @@ class ServiceProviderEventFactory(factory.django.DjangoModelFactory):
     service_date = factory.Faker('date')
     cost = factory.Faker('random_int')
     description = factory.Faker('text')
-
-
-class VehicleEventFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = VehicleEvent
-
-    maintenance_report = factory.SubFactory(MaintenanceReportFactory)
-    vehicle = factory.SubFactory("vehicles.factories.VehicleFactory")
