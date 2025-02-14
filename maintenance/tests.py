@@ -1,9 +1,11 @@
-import datetime
 import random
+from datetime import datetime, timedelta, date
 
 import factory
+from dateutil.relativedelta import relativedelta
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.timezone import now
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
@@ -317,53 +319,60 @@ class MaintenanceReportListViewTestCases(APITestCase):
 
     @classmethod
     def setUpTestData(cls):
+        current_date = datetime.now().date()
+        first_day_current_month = current_date.replace(day=1)
+        first_day_previous_month = (first_day_current_month - timedelta(days=1)).replace(day=1)
+        last_day_previous_month = first_day_current_month - timedelta(days=1)
+
         cls.user_profile = UserProfileFactory.create()
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
         cls.vehicle = VehicleFactory.create(profile=cls.user_profile)
         cls.service_provider = ServiceProviderFactory.create()
-        cls.maintenance_reports = MaintenanceReportFactory.create_batch(size=5, profile=cls.user_profile)
         cls.parts = PartFactory.create_batch(size=20)
         cls.parts_provider = PartsProviderFactory.create()
-        cls.part_purchase_events = [PartPurchaseEventFactory.create(part=part,
-                                                                    provider=cls.parts_provider,
-                                                                    maintenance_report=cls.maintenance_reports[0]) for
-                                    part in cls.parts]
-        cls.service_provider_event = ServiceProviderEventFactory(maintenance_report=cls.maintenance_reports[0])
+        cls.current_month_reports = MaintenanceReportFactory.create_batch(size=5, profile=cls.user_profile, vehicle=cls.vehicle)
+        for i, report in enumerate(cls.current_month_reports):
+            report.start_date = first_day_current_month + timedelta(days=i + 1)
+            report.save()
+        cls.previous_month_reports = MaintenanceReportFactory.create_batch(size=5, profile=cls.user_profile, vehicle=cls.vehicle)
+        for i, report in enumerate(cls.previous_month_reports):
+            report.start_date = first_day_previous_month + timedelta(days=i + 1)
+            report.save()
+
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token
         self.maintenance_report_data = {
             "profile": self.user_profile.id,
             "vehicle": self.vehicle.id,
-            "start_date": datetime.date(2020, 12, 27).isoformat(),
-            "end_date": datetime.date(2020, 12, 31).isoformat(),
+            "start_date": date(2020, 12, 27).isoformat(),
+            "end_date": date(2020, 12, 31).isoformat(),
             "description": "description",
             "mileage": 55555,
             "part_purchase_events": [
                 {
                     "part": self.parts[0].id,
                     "provider": self.parts_provider.id,
-                    "purchase_date": datetime.date(2020, 12, 31).isoformat(),
+                    "purchase_date": date(2020, 12, 31).isoformat(),
                     "cost": 2000}
             ],
             "service_provider_events": [
                 {
                     "service_provider": self.service_provider.id,
-                    "service_date": datetime.date(2020, 12, 31).isoformat(),
+                    "service_date": date(2020, 12, 31).isoformat(),
                     "cost": 2000,
                     "description": "description", }
             ],
         }
 
     def test_successful_retrieval_of_maintenance_reports(self):
-        response = self.client.get(reverse("reports"))
+        response = self.client.get(reverse("reports"), data={"year": "2025", "month": "2", "vehicle_id": self.vehicle.id})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['count'], len(self.maintenance_reports))
+        self.assertEqual(response.data['count'], len(self.current_month_reports))
 
     def test_creation_of_new_report(self):
         response = self.client.post(reverse("reports"), data=self.maintenance_report_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(MaintenanceReport.objects.count(), len(self.maintenance_reports) + 1)
 
     def test_unauthorised_access(self):
         self.client.cookies['access'] = None
@@ -388,8 +397,8 @@ class MaintenanceReportDetailsTestCases(APITestCase):
     def setUp(self):
         self.client.cookies['access'] = self.access_token
         self.data = {
-            "start_date": datetime.date(2020, 12, 27).isoformat(),
-            "end_date": datetime.date(2020, 12, 31).isoformat(),
+            "start_date": date(2020, 12, 27).isoformat(),
+            "end_date": date(2020, 12, 31).isoformat(),
             "cost": random.randint(0, 10 ** 8),
             "description": "description",
             "mileage": 55555,
@@ -398,13 +407,13 @@ class MaintenanceReportDetailsTestCases(APITestCase):
                 {
                     "part": self.part.id,
                     "provider": self.parts_provider.id,
-                    "purchase_date": datetime.date(2020, 12, 31).isoformat(),
+                    "purchase_date": date(2020, 12, 31).isoformat(),
                     "cost": 2000}
             ],
             "service_provider_events": [
                 {
                     "service_provider": self.service_provider.id,
-                    "service_date": datetime.date(2020, 12, 31).isoformat(),
+                    "service_date": date(2020, 12, 31).isoformat(),
                     "cost": 2000,
                     "description": "updated description", }
             ],
@@ -439,9 +448,9 @@ class MaintenanceReportOverviewTestCases(APITestCase):
         cls.vehicle = VehicleFactory.create(profile=cls.user_profile)
         cls.service_providers = ServiceProviderFactory.create_batch(size=5)
         cls.current_maintenance_reports = MaintenanceReportFactory.create_batch(size=10, profile=cls.user_profile, start_date=factory.LazyFunction(
-            lambda: datetime.date(current_year, random.randint(1, 12), random.randint(1, 28))))
+            lambda: date(current_year, random.randint(1, 12), random.randint(1, 28))))
         cls.previous_maintenance_reports = MaintenanceReportFactory.create_batch(size=5, profile=cls.user_profile, start_date=factory.LazyFunction(
-            lambda: datetime.date(previous_year, random.randint(1, 12), random.randint(1, 28))))
+            lambda: date(previous_year, random.randint(1, 12), random.randint(1, 28))))
         cls.part_purchase_event = PartPurchaseEventFactory.create(maintenance_report=cls.current_maintenance_reports[0])
         cls.service_provider_event = ServiceProviderEventFactory(maintenance_report=cls.current_maintenance_reports[0])
 

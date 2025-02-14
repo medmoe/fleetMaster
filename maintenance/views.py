@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from vehicles.models import Vehicle
 from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, MaintenanceReport
 from .serializers import PartSerializer, ServiceProviderSerializer, PartsProviderSerializer, \
     PartPurchaseEventSerializer, MaintenanceReportSerializer
@@ -223,7 +224,21 @@ class MaintenanceReportListView(APIView):
     permission_classes = [IsAuthenticated, ]
 
     def get(self, request):
-        maintenance_reports = MaintenanceReport.objects.filter(profile__user=request.user).order_by('start_date')
+        print(request.query_params)
+        month = request.query_params.get('month', now().month)
+        year = request.query_params.get('year', now().year)
+        vehicle_id = request.query_params.get('vehicle_id', None)
+        if not vehicle_id:
+            raise ValidationError(detail={"vehicle_id": "Vehicle ID is required"})
+
+        if not vehicle_id.isdigit():
+            return Response(data={"Error": "Invalid vehicle ID"}, status=status.HTTP_400_BAD_REQUEST)
+
+        vehicle = Vehicle.objects.filter(id=vehicle_id, profile__user=request.user).first()
+        if not vehicle:
+            return Response(data={"Error": "Vehicle not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        maintenance_reports = MaintenanceReport.objects.filter(profile__user=request.user, vehicle=vehicle, start_date__month=month, start_date__year=year)
         paginator = PageNumberPagination()
         paginated_maintenance_reports = paginator.paginate_queryset(maintenance_reports, request)
         serializer = MaintenanceReportSerializer(paginated_maintenance_reports, many=True, context={'request': request})
