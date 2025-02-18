@@ -224,7 +224,6 @@ class MaintenanceReportListView(APIView):
     permission_classes = [IsAuthenticated, ]
 
     def get(self, request):
-        print(request.query_params)
         month = request.query_params.get('month', now().month)
         year = request.query_params.get('year', now().year)
         vehicle_id = request.query_params.get('vehicle_id', None)
@@ -238,7 +237,7 @@ class MaintenanceReportListView(APIView):
         if not vehicle:
             return Response(data={"Error": "Vehicle not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        maintenance_reports = MaintenanceReport.objects.filter(profile__user=request.user, vehicle=vehicle, start_date__month=month, start_date__year=year)
+        maintenance_reports = MaintenanceReport.objects.filter(profile__user=request.user, vehicle=vehicle, start_date__month=month, start_date__year=year).order_by('start_date')
         paginator = PageNumberPagination()
         paginated_maintenance_reports = paginator.paginate_queryset(maintenance_reports, request)
         serializer = MaintenanceReportSerializer(paginated_maintenance_reports, many=True, context={'request': request})

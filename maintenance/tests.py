@@ -2,10 +2,8 @@ import random
 from datetime import datetime, timedelta, date
 
 import factory
-from dateutil.relativedelta import relativedelta
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.timezone import now
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
@@ -316,9 +314,9 @@ class PartsProviderDetailsTestCases(APITestCase):
 
 
 class MaintenanceReportListViewTestCases(APITestCase):
-
     @classmethod
     def setUpTestData(cls):
+        MILEAGE = 20000
         current_date = datetime.now().date()
         first_day_current_month = current_date.replace(day=1)
         first_day_previous_month = (first_day_current_month - timedelta(days=1)).replace(day=1)
@@ -326,7 +324,7 @@ class MaintenanceReportListViewTestCases(APITestCase):
 
         cls.user_profile = UserProfileFactory.create()
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
-        cls.vehicle = VehicleFactory.create(profile=cls.user_profile)
+        cls.vehicle = VehicleFactory.create(profile=cls.user_profile, mileage=MILEAGE)
         cls.service_provider = ServiceProviderFactory.create()
         cls.parts = PartFactory.create_batch(size=20)
         cls.parts_provider = PartsProviderFactory.create()
@@ -338,7 +336,6 @@ class MaintenanceReportListViewTestCases(APITestCase):
         for i, report in enumerate(cls.previous_month_reports):
             report.start_date = first_day_previous_month + timedelta(days=i + 1)
             report.save()
-
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token
@@ -366,13 +363,18 @@ class MaintenanceReportListViewTestCases(APITestCase):
         }
 
     def test_successful_retrieval_of_maintenance_reports(self):
-        response = self.client.get(reverse("reports"), data={"year": "2025", "month": "2", "vehicle_id": self.vehicle.id})
+        response = self.client.get(reverse("reports"), data={"year": "2025", "month": "1", "vehicle_id": self.vehicle.id})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], len(self.current_month_reports))
 
     def test_creation_of_new_report(self):
         response = self.client.post(reverse("reports"), data=self.maintenance_report_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(self.current_month_reports) + 1 + len(self.previous_month_reports), MaintenanceReport.objects.count())
+
+    def test_sync_latest_maintenance_report_to_vehicle(self):
+        latest_report = MaintenanceReport.objects.order_by("-start_date").first()
+        self.assertEqual(latest_report.mileage, self.vehicle.mileage)
 
     def test_unauthorised_access(self):
         self.client.cookies['access'] = None

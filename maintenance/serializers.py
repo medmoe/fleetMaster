@@ -36,6 +36,7 @@ class PartPurchaseEventSerializer(serializers.ModelSerializer):
 
 class ServiceProviderEventSerializer(serializers.ModelSerializer):
     maintenance_report = serializers.PrimaryKeyRelatedField(queryset=MaintenanceReport.objects.all(), required=False)
+    service_provider_details = ServiceProviderSerializer(source='service_provider', read_only=True)
 
     class Meta:
         model = ServiceProviderEvent
