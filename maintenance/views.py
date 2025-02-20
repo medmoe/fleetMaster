@@ -10,9 +10,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from vehicles.models import Vehicle
-from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, MaintenanceReport
+from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, MaintenanceReport, ServiceProviderEvent
 from .serializers import PartSerializer, ServiceProviderSerializer, PartsProviderSerializer, \
-    PartPurchaseEventSerializer, MaintenanceReportSerializer
+    PartPurchaseEventSerializer, MaintenanceReportSerializer, ServiceProviderEventSerializer
 from .utils import ReportSummarizer
 
 # Constants
@@ -155,39 +155,14 @@ class PartsProviderDetailsView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class PartPurchaseEventsListView(APIView):
-    permission_classes = [IsAuthenticated, ]
-
-    def get(self, request):
-        part_purchase_events = PartPurchaseEvent.objects.filter(profile__user=request.user).order_by('purchase_date')
-        paginator = PageNumberPagination()
-        paginated_part_purchase_events = paginator.paginate_queryset(part_purchase_events, request)
-        serializer = PartPurchaseEventSerializer(paginated_part_purchase_events, many=True,
-                                                 context={"request": request})
-        return paginator.get_paginated_response(serializer.data)
-
-    def post(self, request):
-        serializer = PartPurchaseEventSerializer(data=request.data, context={"request": request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        raise ValidationError(detail=serializer.errors)
-
-
 class PartPurchaseEventDetailsView(APIView):
     permission_classes = [IsAuthenticated, ]
 
     def get_object(self, pk, user):
         try:
-            return PartPurchaseEvent.objects.get(pk=pk, profile__user=user)
-
+            return PartPurchaseEvent.objects.get(pk=pk, maintenance_report__profile__user=user)
         except PartPurchaseEvent.DoesNotExist:
             raise NotFound(detail="Part purchase even does not exist")
-
-    def get(self, request, pk):
-        part_purchase_event = self.get_object(pk, request.user)
-        serializer = PartPurchaseEventSerializer(part_purchase_event)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):
         part_purchase_event = self.get_object(pk, request.user)
@@ -203,23 +178,27 @@ class PartPurchaseEventDetailsView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class PartPurchaseEventBulkOperations(APIView):
-    def delete(self, request):
-        ids_params = request.query_params.get('ids', None)
-        if not ids_params:
-            return Response(status=status.HTTP_204_NO_CONTENT)
+class ServiceProviderEventDetailsView(APIView):
+    permission_classes = [IsAuthenticated, ]
+
+    def get_object(self, pk, user):
         try:
-            ids = [int(id) for id in ids_params.split(',')]
-        except ValueError:
-            return Response(data={"Error": "Invalid IDs format"}, status=status.HTTP_400_BAD_REQUEST)
+            return ServiceProviderEvent.objects.get(pk=pk, maintenance_report__profile__user=user)
+        except ServiceProviderEvent.DoesNotExist:
+            raise NotFound(detail="Service provider event does not exist")
 
-        events_to_delete = PartPurchaseEvent.objects.filter(id__in=ids)
-        deleted_count, _ = events_to_delete.delete()
-        if deleted_count == 0:
-            return Response({"Error", "No matching records found"}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({"Message": f"{deleted_count} records deleted successfully"}, status=status.HTTP_200_OK)
+    def put(self, request, pk):
+        service_provider_event = self.get_object(pk, request.user)
+        serializer = ServiceProviderEventSerializer(service_provider_event, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status.HTTP_202_ACCEPTED)
+        return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
 
-
+    def delete(self, request, pk):
+        service_provider_event = self.get_object(pk, request.user)
+        service_provider_event.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 class MaintenanceReportListView(APIView):
     permission_classes = [IsAuthenticated, ]
 
@@ -237,7 +216,8 @@ class MaintenanceReportListView(APIView):
         if not vehicle:
             return Response(data={"Error": "Vehicle not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        maintenance_reports = MaintenanceReport.objects.filter(profile__user=request.user, vehicle=vehicle, start_date__month=month, start_date__year=year).order_by('start_date')
+        maintenance_reports = MaintenanceReport.objects.filter(profile__user=request.user, vehicle=vehicle, start_date__month=month,
+                                                               start_date__year=year).order_by('start_date')
         paginator = PageNumberPagination()
         paginated_maintenance_reports = paginator.paginate_queryset(maintenance_reports, request)
         serializer = MaintenanceReportSerializer(paginated_maintenance_reports, many=True, context={'request': request})
@@ -267,7 +247,7 @@ class MaintenanceReportDetailsView(APIView):
 
     def put(self, request, pk):
         maintenance_report = self.get_object(pk, request.user)
-        serializer = MaintenanceReportSerializer(maintenance_report, data=request.data)
+        serializer = MaintenanceReportSerializer(maintenance_report, data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status.HTTP_202_ACCEPTED)
