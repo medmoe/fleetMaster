@@ -197,8 +197,18 @@ class ServiceProviderEventDetailsView(APIView):
 
     def delete(self, request, pk):
         service_provider_event = self.get_object(pk, request.user)
-        service_provider_event.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        with transaction.atomic():
+            has_other_events = ServiceProviderEvent.objects.filter(
+                maintenance_report_id=service_provider_event.maintenance_report_id,
+                maintenance_report__profile__user=request.user
+            ).exclude(pk=service_provider_event.pk).exists()
+            if has_other_events:
+                service_provider_event.delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            else:
+                raise ValidationError(detail={"error": "Cannot delete the only service provider event for this maintenance report."})
+
+
 class MaintenanceReportListView(APIView):
     permission_classes = [IsAuthenticated, ]
 

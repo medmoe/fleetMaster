@@ -363,7 +363,9 @@ class MaintenanceReportListViewTestCases(APITestCase):
         }
 
     def test_successful_retrieval_of_maintenance_reports(self):
-        response = self.client.get(reverse("reports"), data={"year": "2025", "month": "1", "vehicle_id": self.vehicle.id})
+        response = self.client.get(reverse("reports"), data={"year": datetime.now().year,
+                                                             "month": datetime.now().month,
+                                                             "vehicle_id": self.vehicle.id})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], len(self.current_month_reports))
 
@@ -566,7 +568,12 @@ class ServiceProviderEventDetailsTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         self.assertEqual(ServiceProviderEvent.objects.get(id=self.service_provider_event.id).cost, self.service_provider_event_data["cost"])
 
+    def test_failed_deletion_for_last_service_provider_event(self):
+        response = self.client.delete(reverse('service-provider-event-details', args=[self.service_provider_event.id]))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_successful_service_provider_event_deletion(self):
+        ServiceProviderEventFactory.create(maintenance_report=self.maintenance_report)
         response = self.client.delete(reverse('service-provider-event-details', args=[self.service_provider_event.id]))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         with self.assertRaises(ServiceProviderEvent.DoesNotExist):
