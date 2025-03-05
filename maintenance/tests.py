@@ -9,6 +9,7 @@ from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.factories import UserProfileFactory
+from core.validators import validate_positive_integer
 from vehicles.factories import VehicleFactory
 from .factories import PartFactory, PartsProviderFactory, ServiceProviderFactory, PartPurchaseEventFactory, \
     MaintenanceReportFactory, ServiceProviderEventFactory

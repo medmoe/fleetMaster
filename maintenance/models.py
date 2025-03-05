@@ -2,6 +2,8 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Sum
 
+from core.validators import validate_positive_integer
+
 
 class ServiceChoices(models.TextChoices):
     MECHANIC = "MECHANIC", "Mechanic"
@@ -66,7 +68,7 @@ class PartPurchaseEvent(models.Model):
     provider = models.ForeignKey(PartsProvider, on_delete=models.CASCADE)
     maintenance_report = models.ForeignKey(MaintenanceReport, on_delete=models.CASCADE, related_name='part_purchase_events')
     purchase_date = models.DateField()
-    cost = models.DecimalField(max_digits=10, decimal_places=2)
+    cost = models.IntegerField(validators=[validate_positive_integer])
     receipt = models.ImageField(upload_to='parts/%Y/%m/%d/', null=True)
 
 
@@ -74,6 +76,6 @@ class ServiceProviderEvent(models.Model):
     maintenance_report = models.ForeignKey(MaintenanceReport, on_delete=models.CASCADE, related_name='service_provider_events')
     service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE)
     service_date = models.DateField()
-    cost = models.DecimalField(max_digits=10, decimal_places=2)
+    cost = models.IntegerField(validators=[validate_positive_integer])
     receipt = models.ImageField(upload_to='services/%Y/%m/%d/', null=True)
     description = models.TextField(blank=True)
