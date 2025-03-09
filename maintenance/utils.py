@@ -1,5 +1,4 @@
 from django.db.models import Sum
-
 from .models import MaintenanceChoices, ServiceChoices
 
 

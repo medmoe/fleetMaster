@@ -9,11 +9,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from vehicles.models import Vehicle
 from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, MaintenanceReport, ServiceProviderEvent
 from .serializers import PartSerializer, ServiceProviderSerializer, PartsProviderSerializer, \
     PartPurchaseEventSerializer, MaintenanceReportSerializer, ServiceProviderEventSerializer
-from .utils import ReportSummarizer
 
 # Constants
 DAYS_IN_A_WEEK = 7
@@ -213,24 +211,10 @@ class MaintenanceReportListView(APIView):
     permission_classes = [IsAuthenticated, ]
 
     def get(self, request):
-        month = request.query_params.get('month', now().month)
-        year = request.query_params.get('year', now().year)
-        vehicle_id = request.query_params.get('vehicle_id', None)
-        if not vehicle_id:
-            raise ValidationError(detail={"vehicle_id": "Vehicle ID is required"})
-
-        if not vehicle_id.isdigit():
-            return Response(data={"Error": "Invalid vehicle ID"}, status=status.HTTP_400_BAD_REQUEST)
-
-        vehicle = Vehicle.objects.filter(id=vehicle_id, profile__user=request.user).first()
-        if not vehicle:
-            return Response(data={"Error": "Vehicle not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        maintenance_reports = MaintenanceReport.objects.filter(profile__user=request.user, vehicle=vehicle, start_date__month=month,
-                                                               start_date__year=year).order_by('start_date')
+        reports = MaintenanceReport.objects.filter(profile__user=request.user).order_by("start_date")
         paginator = PageNumberPagination()
-        paginated_maintenance_reports = paginator.paginate_queryset(maintenance_reports, request)
-        serializer = MaintenanceReportSerializer(paginated_maintenance_reports, many=True, context={'request': request})
+        paginated_reports = paginator.paginate_queryset(reports, request)
+        serializer = MaintenanceReportSerializer(paginated_reports, many=True, context={'request': request})
         return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
@@ -278,31 +262,35 @@ class MaintenanceReportDetailsView(APIView):
 class MaintenanceReportOverviewView(APIView):
     permission_classes = [IsAuthenticated, ]
 
-    def get_queryset(self):
+    def get_queryset(self, request):
         """
         Fetch maintenance reports
         """
         current_year = now().year
-        start_date = datetime.date(current_year - 1, 1, 1)  # January 1st of the previous year
-        end_date = datetime.date(current_year, 12, 31)  # December 31st of the current year
-        return {
-            "current": MaintenanceReport.objects.filter(profile__user=self.request.user, start_date__gte=start_date, start_date__lte=end_date,
-                                                        start_date__year=current_year),
-            "previous": MaintenanceReport.objects.filter(profile__user=self.request.user, start_date__gte=start_date, start_date__lte=end_date,
-                                                         start_date__year=current_year - 1),
-        }
+        current_start_date = datetime.date(current_year, 1, 1)
+        current_end_date = datetime.date(current_year, 12, 31)
+        previous_start_date = datetime.date(current_year - 1, 1, 1)
+        previous_end_date = datetime.date(current_year - 1, 12, 31)
+        vehicle_id = request.query_params.get('vehicle_id', None)
+        if not vehicle_id:
+            raise ValidationError(detail={"vehicle_id": "Vehicle ID is required"})
 
-    def fetch_and_summarize_reports(self):
-        report_queryset = self.get_queryset()
-        summarizer = ReportSummarizer()
         return {
-            "previous_report": summarizer.summarize_reports(report_queryset["previous"]),
-            "current_report": summarizer.summarize_reports(report_queryset["current"]),
+            "current": MaintenanceReport.objects.filter(profile__user=self.request.user,
+                                                        start_date__gte=current_start_date,
+                                                        start_date__lte=current_end_date,
+                                                        vehicle=vehicle_id).order_by("start_date"),
+            "previous": MaintenanceReport.objects.filter(profile__user=self.request.user,
+                                                         start_date__gte=previous_start_date,
+                                                         start_date__lte=previous_end_date,
+                                                         vehicle=vehicle_id).order_by("start_date"),
         }
 
     def get(self, request):
-        summarized_data = self.fetch_and_summarize_reports()
-        return Response(summarized_data, status=status.HTTP_200_OK)
+        report_queryset = self.get_queryset(request)
+        current_year_serializer = MaintenanceReportSerializer(report_queryset["current"], many=True, context={'request': request})
+        previous_year_serializer = MaintenanceReportSerializer(report_queryset["previous"], many=True, context={'request': request})
+        return Response({"current_year": current_year_serializer.data, "previous_year": previous_year_serializer.data}, status=status.HTTP_200_OK)
 
 
 class GeneralMaintenanceDataView(APIView):

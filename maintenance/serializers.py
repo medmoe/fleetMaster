@@ -47,11 +47,28 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
     part_purchase_events = PartPurchaseEventSerializer(many=True, required=False)
     service_provider_events = ServiceProviderEventSerializer(many=True, required=False)
     vehicle_details = VehicleSerializer(source='vehicle', read_only=True)
+    total_cost = serializers.SerializerMethodField()
 
     class Meta:
         model = MaintenanceReport
-        fields = "__all__"
+        fields = [
+            "id",
+            "profile",
+            "vehicle",
+            "vehicle_details",
+            "maintenance_type",
+            "start_date",
+            "end_date",
+            "description",
+            "mileage",
+            "total_cost",
+            "part_purchase_events",
+            "service_provider_events",
+        ]
         read_only_fields = ['profile']
+
+    def get_total_cost(self, obj):
+        return obj.total_cost
 
     def create(self, validated_data):
         try:
