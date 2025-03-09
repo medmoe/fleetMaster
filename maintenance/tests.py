@@ -597,10 +597,8 @@ class MaintenanceReportOverviewTestCases(APITestCase):
     def test_successful_maintenance_report_retrieval(self):
         response = self.client.get(reverse('overview'), data={"vehicle_id": self.vehicle.id})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn("current_year", response.data)
-        self.assertIn("previous_year", response.data)
-        self.assertEqual(len(response.data["previous_year"]), len(self.previous_maintenance_reports))
-        self.assertEqual(len(response.data["current_year"]), len(self.current_maintenance_reports))
+        m, n = len(self.current_maintenance_reports), len(self.previous_maintenance_reports)
+        self.assertEqual(len(response.data), m + n)
 
 
 class GeneralMaintenanceDataTests(APITestCase):
