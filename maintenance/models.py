@@ -1,80 +1,81 @@
+from django.core.exceptions import ValidationError
 from django.db import models
-from vehicles.models import StatusChoices, Vehicle
+from django.db.models import Sum
+
+from core.validators import validate_positive_integer
 
 
-class MaintenanceRecord(models.Model):
-    """ Track each maintenance event for a vehicle """
+class ServiceChoices(models.TextChoices):
+    MECHANIC = "MECHANIC", "Mechanic"
+    ELECTRICIAN = "ELECTRICIAN", "Electrician"
+    CLEANING = "CLEANING", "Cleaning"
 
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE)
-    service_date = models.DateField()
-    service_type = models.CharField(max_length=100)
-    description = models.TextField()
-    mileage_at_service = models.PositiveIntegerField()
-    next_service_due = models.DateField()
-    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    status = models.CharField(max_length=20, choices=StatusChoices.choices, default=StatusChoices.IN_MAINTENANCE)
 
-    def __str__(self):
-        return f'Service {self.id} for {self.vehicle} on {self.service_date}'
+class MaintenanceChoices(models.TextChoices):
+    PREVENTIVE = 'PREVENTIVE', "Preventive"
+    CURATIVE = 'CURATIVE', "Curative"
 
 
 class Part(models.Model):
-    """ Track individual parts that might be used in maintenance activities """
-
     name = models.CharField(max_length=100)
-    part_number = models.CharField(max_length=50, unique=True)
-    description = models.TextField(blank=True, null=True)
-    quantity_in_stock = models.PositiveIntegerField()
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
-
-    def __str__(self):
-        return f'{self.name} ({self.part_number})'
-
-
-class MaintenancePart(models.Model):
-    """ Link parts to maintenance records detailing which parts were used in a given maintenance event """
-
-    maintenance_record = models.ForeignKey(MaintenanceRecord, on_delete=models.CASCADE)
-    part = models.ForeignKey(Part, on_delete=models.CASCADE)
-    quantity_used = models.PositiveIntegerField()
-
-    def __str__(self):
-        return f'{self.part.name} used in Service {self.maintenance_record.id}'
-
-
-class ServiceProvider(models.Model):
-    """ Captures information about service providers or repair shops that perform the maintenance """
-
-    name = models.CharField(max_length=100)
-    contact_person = models.CharField(max_length=100, blank=True, null=True)
-    phone_number = models.CharField(max_length=20, blank=True, null=True)
-    email = models.EmailField(max_length=254, blank=True, null=True)
-    address = models.CharField(max_length=255, blank=True, null=True)
+    description = models.TextField(blank=True)
 
     def __str__(self):
         return self.name
 
 
-class ServiceRecord(models.Model):
-    """ Connects maintenance records to service providers, capturing details about who performed the maintenance """
+class ServiceProvider(models.Model):
+    name = models.CharField(max_length=100)
+    service_type = models.CharField(max_length=100, choices=ServiceChoices.choices, default=ServiceChoices.MECHANIC)
+    phone_number = models.CharField(max_length=100, blank=True)
+    address = models.TextField(blank=True)
 
-    maintenance_record = models.OneToOneField(MaintenanceRecord, on_delete=models.CASCADE)
+    def __str__(self):
+        return self.name
+
+
+class PartsProvider(models.Model):
+    name = models.CharField(max_length=100)
+    phone_number = models.CharField(max_length=100)
+    address = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name
+
+
+class MaintenanceReport(models.Model):
+    profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE, related_name='maintenance_reports')
+    vehicle = models.ForeignKey("vehicles.Vehicle", on_delete=models.CASCADE, related_name='maintenance_reports')
+    maintenance_type = models.CharField(max_length=50, choices=MaintenanceChoices.choices, default=MaintenanceChoices.PREVENTIVE)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    description = models.TextField(blank=True)
+    mileage = models.PositiveIntegerField(blank=True, null=True)
+
+    @property
+    def total_cost(self):
+        parts_cost = self.part_purchase_events.aggregate(total=Sum('cost'))['total'] or 0
+        services_cost = self.service_provider_events.aggregate(total=Sum('cost'))['total'] or 0
+        return parts_cost + services_cost
+
+    def clean(self):
+        if self.end_date < self.start_date:
+            raise ValidationError("End date cannot be before start date.")
+
+
+class PartPurchaseEvent(models.Model):
+    part = models.ForeignKey(Part, on_delete=models.CASCADE)
+    provider = models.ForeignKey(PartsProvider, on_delete=models.CASCADE)
+    maintenance_report = models.ForeignKey(MaintenanceReport, on_delete=models.CASCADE, related_name='part_purchase_events')
+    purchase_date = models.DateField()
+    cost = models.IntegerField(validators=[validate_positive_integer])
+    receipt = models.ImageField(upload_to='parts/%Y/%m/%d/', null=True)
+
+
+class ServiceProviderEvent(models.Model):
+    maintenance_report = models.ForeignKey(MaintenanceReport, on_delete=models.CASCADE, related_name='service_provider_events')
     service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE)
     service_date = models.DateField()
-    notes = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return f'Service Record for Maintenance {self.maintenance_record.id} by {self.service_provider}'
-
-
-class ScheduledMaintenance(models.Model):
-    """ schedule upcoming maintenance based on mileage or time intervals """
-
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE)
-    service_type = models.CharField(max_length=100)
-    interval_mileage = models.PositiveIntegerField()
-    interval_days = models.PositiveIntegerField()
-    last_service_date = models.DateField()
-
-    def __str__(self):
-        return f'Scheduled Maintenance for {self.vehicle} every {self.interval_mileage} miles or {self.interval_days} days'
+    cost = models.IntegerField(validators=[validate_positive_integer])
+    receipt = models.ImageField(upload_to='services/%Y/%m/%d/', null=True)
+    description = models.TextField(blank=True)

@@ -5,7 +5,7 @@ from rest_framework.test import APITestCase, APIClient
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 
-from .factories import UserProfileFactory
+from .factories import UserProfileFactory, UserFactory
 from .models import UserProfile
 from drivers.factories import DriverFactory
 from vehicles.factories import VehicleFactory
@@ -20,7 +20,7 @@ class SignUpTestCases(APITestCase):
                 'email': 'test@test.com',
             },
         }
-        self.existed_user = User.objects.create_user(username="user", password="password", email="user@test.com")
+        self.existed_user = UserFactory.create()
         self.initial_users_count = User.objects.count()
 
     def test_successful_registration(self):
