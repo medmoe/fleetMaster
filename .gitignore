@@ -52,3 +52,7 @@ deploy/
 # Igore coverage reports
 .coverage
 htmlcov/
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml

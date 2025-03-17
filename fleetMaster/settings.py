@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = []
 
@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'rest_framework',
     'corsheaders',
+    'storages',
     # My apps
     'accounts',
     'vehicles',
@@ -80,6 +81,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'fleetMaster.wsgi.application'
 
+
+
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
@@ -92,6 +95,17 @@ if os.environ.get('GITHUB_WORKFLOW'):
             'PASSWORD': 'postgres',
             'HOST': 'localhost',
             'PORT': '5432',
+        }
+    }
+elif os.environ.get('AWS_EXECUTION_ENV') or os.environ.get('ELASTICBEANSTALK_ENVIRONMENT'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config("RDS_DB_NAME"),
+            "USER": config("RDS_USERNAME"),
+            "PASSWORD": config("RDS_PASSWORD"),
+            "HOST": config("RDS_HOSTNAME"),
+            "PORT": config("RDS_PORT"),
         }
     }
 else:
@@ -138,7 +152,17 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+STORAGES = {
+    'default': {
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+    },
+    'staticfiles': {
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+    }
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -221,3 +245,7 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=60),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
+
+# AWS configuration
+AWS_STORAGE_BUCKET_NAME = "fleet-master-static-files"
+AWS_S3_REGION_NAME = "us-east-2"
