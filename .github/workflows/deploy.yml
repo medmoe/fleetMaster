@@ -24,7 +24,10 @@ jobs:
         aws-region: ${{ secrets.AWS_REGION }}
 
     - name: Create Elastic Beanstalk deployment package
-      run: zip -r deploy.zip . -x '*.git*' '*.github*'
+      run: zip -r deploy.zip . -x '*.git*' '*.github*' 
+
+    - name: Log dependencies
+      run: unzip -p deploy.zip requirements.txt
 
     - name: Deploy to Elastic Beanstalk
       uses: einaregilsson/beanstalk-deploy@v21
