@@ -222,7 +222,12 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [
+    'fleet-master-back-env.eba-gvt2xidk.us-east-2.elasticbeanstalk.com',
+    'your-custom-domain.com',
+    'localhost',  # for development
+]
+
 
 # media configuration
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
