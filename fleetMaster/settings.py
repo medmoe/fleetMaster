@@ -11,8 +11,10 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 import os
-from pathlib import Path
+import sys
 from datetime import timedelta
+from pathlib import Path
+
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -80,8 +82,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'fleetMaster.wsgi.application'
-
-
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
@@ -163,6 +163,15 @@ STORAGES = {
         "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
     }
 }
+if 'test' in sys.argv:
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage"
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        }
+    }
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
