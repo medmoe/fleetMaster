@@ -97,7 +97,7 @@ if os.environ.get('GITHUB_WORKFLOW'):
             'PORT': '5432',
         }
     }
-elif os.environ.get('AWS_EXECUTION_ENV') or os.environ.get('ELASTICBEANSTALK_ENVIRONMENT'):
+elif 'RDS_HOSTNAME' in os.environ:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -227,7 +227,6 @@ ALLOWED_HOSTS = [
     'your-custom-domain.com',
     'localhost',  # for development
 ]
-
 
 # media configuration
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
