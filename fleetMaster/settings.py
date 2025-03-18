@@ -153,7 +153,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 STORAGES = {
     'default': {
@@ -225,7 +225,9 @@ CORS_ALLOW_HEADERS = [
 ALLOWED_HOSTS = [
     'fleet-master-back-env.eba-gvt2xidk.us-east-2.elasticbeanstalk.com',
     'your-custom-domain.com',
-    'localhost',  # for development
+    'localhost',# for development
+    '127.0.0.1',
+    '0.0.0.0',
 ]
 
 # media configuration
