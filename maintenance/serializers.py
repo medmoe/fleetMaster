@@ -71,37 +71,14 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
         return obj.total_cost
 
     def create(self, validated_data):
-        try:
-            return self._handle_maintenance_report_events(validated_data, is_new=True)
-        except Exception as e:
-            raise serializers.ValidationError(f"Error creating maintenance report: {e}")
-
-    def update(self, instance, validated_data):
-        try:
-            return self._handle_maintenance_report_events(validated_data, is_new=False, instance=instance)
-        except Exception as e:
-            raise serializers.ValidationError(f"Error updating maintenance report: {e}")
-
-    def _handle_maintenance_report_events(self, validated_data, is_new=True, instance=None):
-        """
-        Handles the creation or update of MaintenanceReport and associated events.
-
-        Args:
-            validated_data: Validated data for creating or updating a MaintenanceReport.
-            is_new: Boolean indicating whether the operation is for a new MaintenanceReport.
-            instance: Existing MaintenanceReport instance, if updating.
-        """
         profile = self.context['request'].user.userprofile
         part_purchase_events_data = validated_data.pop('part_purchase_events', [])
         service_provider_events_data = validated_data.pop('service_provider_events', [])
+        if not service_provider_events_data:
+            raise serializers.ValidationError("At least one service provider event is required")
+
         with transaction.atomic():
-            if is_new:
-                maintenance_report = MaintenanceReport.objects.create(profile=profile, **validated_data)
-            else:
-                maintenance_report = instance
-                for attr, value in validated_data.items():
-                    setattr(maintenance_report, attr, value)
-                maintenance_report.save()
+            maintenance_report = MaintenanceReport.objects.create(profile=profile, **validated_data)
             PartPurchaseEvent.objects.bulk_create(
                 [PartPurchaseEvent(maintenance_report=maintenance_report, **part_data) for part_data in part_purchase_events_data]
             )
@@ -109,3 +86,42 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
                 [ServiceProviderEvent(maintenance_report=maintenance_report, **service_event) for service_event in service_provider_events_data]
             )
         return maintenance_report
+
+    def update(self, instance, validated_data):
+        part_purchase_events_data = validated_data.pop('part_purchase_events', [])
+        service_provider_events_data = validated_data.pop('service_provider_events', [])
+        if not service_provider_events_data and not ServiceProviderEvent.objects.filter(maintenance_report=instance).exists():
+            raise serializers.ValidationError("At least one service provider event is required")
+
+        validated_data.pop('vehicle_details', None)
+        with transaction.atomic():
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+
+            # Handle part purchase events
+            if part_purchase_events_data:
+                provided_part_purchase_event_ids = {event.get('id') for event in part_purchase_events_data}
+                if provided_part_purchase_event_ids:
+                    PartPurchaseEvent.objects.filter(maintenance_report=instance).exclude(pk__in=provided_part_purchase_event_ids).delete()
+
+            # Process each event in the request
+            for part_purchase_event in part_purchase_events_data:
+                part_purchase_event.pop('part_details', None)
+                part_purchase_event.pop('provider_details', None)
+                part_purchase_event.pop('maintenance_report', None)
+                if not 'id' in part_purchase_event:
+                    PartPurchaseEvent.objects.create(maintenance_report=instance, **part_purchase_event)
+
+            # Handle service events
+            service_event_ids = {event.get('id') for event in service_provider_events_data}
+            if service_event_ids:
+                ServiceProviderEvent.objects.filter(maintenance_report=instance).exclude(pk__in=service_event_ids).delete()
+
+            for service_event in service_provider_events_data:
+                service_event.pop('service_provider_details', None)
+                service_event.pop('maintenance_report', None)
+                if not 'id' in service_event:
+                    ServiceProviderEvent.objects.create(maintenance_report=instance, **service_event)
+
+        return instance

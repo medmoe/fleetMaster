@@ -27,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = []
 
@@ -199,8 +199,9 @@ REST_FRAMEWORK = {
 }
 
 # Cors configuration
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWED_ORIGINS = ["http://192.168.1.180:8081"]
+CORS_ALLOWED_ORIGINS = ["http://192.168.1.180:8081", "http://localhost:5173"]
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',

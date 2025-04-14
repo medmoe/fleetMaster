@@ -270,7 +270,7 @@ class MaintenanceReportOverviewView(APIView):
         previous_start_date = datetime.date(current_year - 1, 1, 1)
         vehicle_id = request.query_params.get('vehicle_id', None)
 
-        if not vehicle_id:
+        if not vehicle_id or not vehicle_id.isdigit():
             raise ValidationError(detail={"vehicle_id": "Vehicle ID is required"})
 
         # Combine the conditions for current and previous year
