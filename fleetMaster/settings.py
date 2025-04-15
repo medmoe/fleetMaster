@@ -29,8 +29,6 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -201,7 +199,7 @@ REST_FRAMEWORK = {
 # Cors configuration
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWED_ORIGINS = ["http://192.168.1.180:8081", "http://localhost:5173"]
+CORS_ALLOWED_ORIGINS = ["http://192.168.1.180:8081", "http://localhost:5173", "http://fleetmaster-web-app.s3-website.us-east-2.amazonaws.com/"]
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',
@@ -226,9 +224,10 @@ CORS_ALLOW_HEADERS = [
 ALLOWED_HOSTS = [
     'fleet-master-back-env.eba-gvt2xidk.us-east-2.elasticbeanstalk.com',
     'your-custom-domain.com',
-    'localhost',# for development
+    'localhost',  # for development
     '127.0.0.1',
     '0.0.0.0',
+    '3.19.90.140'
 ]
 
 # media configuration

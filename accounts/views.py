@@ -17,10 +17,7 @@ class SignUpView(APIView):
         serializer = UserProfileSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             account = serializer.save()
-            refresh = RefreshToken.for_user(account.user)
             response = Response(serializer.data, status=status.HTTP_201_CREATED)
-            response.set_cookie(key='refresh', value=str(refresh), httponly=True, samesite='None')
-            response.set_cookie(key='access', value=str(refresh.access_token), httponly=True, samesite='None')
             return response
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -48,8 +45,13 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
-        response.set_cookie(key='refresh', value=response.data['refresh'], httponly=True, samesite='Lax',)
-        response.set_cookie(key='access', value=response.data['access'], httponly=True, samesite="Lax",)
+
+        # Set secure flag to True in production
+        secure = not request.META.get('HTTP_HOST').startswith('127.0.0.1')
+
+
+        response.set_cookie(key='refresh', value=response.data['refresh'], httponly=True, samesite='None', secure=secure)
+        response.set_cookie(key='access', value=response.data['access'], httponly=True, samesite="None", secure=secure)
         response.data.pop('refresh')
         response.data.pop('access')
         return response
