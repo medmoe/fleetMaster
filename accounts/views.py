@@ -16,7 +16,7 @@ class SignUpView(APIView):
     def post(self, request):
         serializer = UserProfileSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            account = serializer.save()
+            serializer.save()
             response = Response(serializer.data, status=status.HTTP_201_CREATED)
             return response
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -47,7 +47,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         response = super().post(request, *args, **kwargs)
 
         # Set secure flag to True in production
-        secure = not request.META.get('HTTP_HOST').startswith('127.0.0.1')
+        http_host = request.META.get('HTTP_HOST')
+        secure = http_host and not request.META.get('HTTP_HOST').startswith('127.0.0.1')
 
 
         response.set_cookie(key='refresh', value=response.data['refresh'], httponly=True, samesite='None', secure=secure)

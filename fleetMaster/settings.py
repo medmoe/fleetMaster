@@ -199,7 +199,7 @@ REST_FRAMEWORK = {
 # Cors configuration
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWED_ORIGINS = ["http://192.168.1.180:8081", "http://localhost:5173", "http://fleetmaster-web-app.s3-website.us-east-2.amazonaws.com/"]
+CORS_ALLOWED_ORIGINS = ["http://192.168.1.180:8081", "http://localhost:5173", "http://fleetmaster-web-app.s3-website.us-east-2.amazonaws.com"]
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',
