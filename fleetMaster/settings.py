@@ -231,6 +231,7 @@ ALLOWED_HOSTS = [
     '3.19.90.140',
     "api.fleetmasters.net",
     '172.31.26.91', # Internal Ip for health checks
+    '3.135.93.17',
     '.elasticbeanstalk.com', # Allow all subdomains on elasticbeanstalk.com
 ]
 
