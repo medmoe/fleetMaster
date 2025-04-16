@@ -230,6 +230,7 @@ ALLOWED_HOSTS = [
     '0.0.0.0',
     '3.19.90.140',
     "api.fleetmasters.net",
+    '172.31.26.91', # Internal Ip for health checks
 ]
 
 # media configuration
