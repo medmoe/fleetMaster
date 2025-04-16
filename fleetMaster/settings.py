@@ -222,7 +222,6 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-# add api host
 ALLOWED_HOSTS = [
     'fleet-master-back-env.eba-gvt2xidk.us-east-2.elasticbeanstalk.com',
     'your-custom-domain.com',
