@@ -17,6 +17,11 @@ from pathlib import Path
 
 from decouple import config
 
+ENVIRONMENT = os.environ.get('DJANGO_ENVIRONMENT', 'development')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = ENVIRONMENT == 'development'
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -25,9 +30,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY')
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
 # Application definition
 
@@ -235,6 +237,7 @@ ALLOWED_HOSTS = [
     '.elasticbeanstalk.com',  # Allow all subdomains on elasticbeanstalk.com
     '.amazonaws.com',
     '172.31.0.0/16',
+    '172.31.38.198'
 ]
 
 # media configuration
