@@ -234,7 +234,7 @@ ALLOWED_HOSTS = [
     "api.fleetmasters.net",
     '.elasticbeanstalk.com',  # Allow all subdomains on elasticbeanstalk.com
     '.amazonaws.com',
-    '172.31.26.91'
+    '172.31.0.0/16',
 ]
 
 # media configuration
