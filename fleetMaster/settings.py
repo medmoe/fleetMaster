@@ -224,6 +224,8 @@ CORS_ALLOW_HEADERS = [
 ]
 
 ALLOWED_HOSTS = [
+    "Fleet-master-back-env.eba-gvt2xidk.us-east-2.elasticbeanstalk.com",
+    "awseb--AWSEB-yXhibroXYO1G-787762533.us-east-2.elb.amazonaws.com",
     'fleet-master-back-env.eba-gvt2xidk.us-east-2.elasticbeanstalk.com',
     'your-custom-domain.com',
     'localhost',  # for development
