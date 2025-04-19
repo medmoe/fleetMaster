@@ -17,6 +17,10 @@ from pathlib import Path
 
 from decouple import config
 
+print("******************")
+print(os.environ)
+print("******************")
+
 ENVIRONMENT = os.environ.get('DJANGO_ENVIRONMENT', 'development')
 
 # SECURITY WARNING: don't run with debug turned on in production!
