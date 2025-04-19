@@ -1,38 +1,38 @@
-name: Deploy to AWS Elastic Beanstalk
-
-on:
-  workflow_run:
-    workflows: ["fleetMaster"]  # This matches the name in your main.yml
-    types:
-      - completed
-    branches:
-      - main  # or your default branch
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}  # Only deploy if tests passed
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
-
-    - name: Create Elastic Beanstalk deployment package
-      run: zip -r deploy.zip . -x '*.git*' '*.github*'
-
-    - name: Deploy to Elastic Beanstalk
-      uses: einaregilsson/beanstalk-deploy@v21
-      with:
-        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        application_name: ${{ secrets.EB_APPLICATION_NAME }}
-        environment_name: ${{ secrets.EB_ENVIRONMENT_NAME }}
-        region: ${{ secrets.AWS_REGION }}
-        deployment_package: deploy.zip
-        version_label: ${{ github.sha }}
+#name: Deploy to AWS Elastic Beanstalk
+#
+#on:
+#  workflow_run:
+#    workflows: ["fleetMaster"]  # This matches the name in your main.yml
+#    types:
+#      - completed
+#    branches:
+#      - main  # or your default branch
+#
+#jobs:
+#  deploy:
+#    runs-on: ubuntu-latest
+#    if: ${{ github.event.workflow_run.conclusion == 'success' }}  # Only deploy if tests passed
+#
+#    steps:
+#    - uses: actions/checkout@v2
+#
+#    - name: Configure AWS credentials
+#      uses: aws-actions/configure-aws-credentials@v4
+#      with:
+#        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#        aws-region: ${{ secrets.AWS_REGION }}
+#
+#    - name: Create Elastic Beanstalk deployment package
+#      run: zip -r deploy.zip . -x '*.git*' '*.github*'
+#
+#    - name: Deploy to Elastic Beanstalk
+#      uses: einaregilsson/beanstalk-deploy@v21
+#      with:
+#        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#        application_name: ${{ secrets.EB_APPLICATION_NAME }}
+#        environment_name: ${{ secrets.EB_ENVIRONMENT_NAME }}
+#        region: ${{ secrets.AWS_REGION }}
+#        deployment_package: deploy.zip
+#        version_label: ${{ github.sha }}
