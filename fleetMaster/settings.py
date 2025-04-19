@@ -227,18 +227,10 @@ CORS_ALLOW_HEADERS = [
 ]
 
 ALLOWED_HOSTS = [
-    "Fleet-master-back-env.eba-gvt2xidk.us-east-2.elasticbeanstalk.com",
-    "awseb--AWSEB-yXhibroXYO1G-787762533.us-east-2.elb.amazonaws.com",
-    'fleet-master-back-env.eba-gvt2xidk.us-east-2.elasticbeanstalk.com',
-    'your-custom-domain.com',
     'localhost',  # for development
     '127.0.0.1',
-    '0.0.0.0',
     "api.fleetmasters.net",
-    '.elasticbeanstalk.com',  # Allow all subdomains on elasticbeanstalk.com
-    '.amazonaws.com',
-    '172.31.0.0/16',
-    '172.31.38.198'
+    "fleetmaster.onrender.com",
 ]
 
 # media configuration
