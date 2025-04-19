@@ -140,9 +140,6 @@ else:
         }
     }
 
-if 'RENDER' in os.environ:
-    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
-
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
@@ -281,5 +278,3 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=60),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
-
-
