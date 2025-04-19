@@ -179,12 +179,12 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 STORAGES = {
-    'default': {
-        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",  # For uploads
     },
-    'staticfiles': {
-        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-    }
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",  # For static files
+    },
 }
 
 # Default primary key field type
@@ -283,5 +283,3 @@ SIMPLE_JWT = {
 }
 
 
-# For file uploads (use local storage or Render's disk)
-DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
