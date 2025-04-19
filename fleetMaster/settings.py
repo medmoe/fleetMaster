@@ -17,15 +17,6 @@ from pathlib import Path
 
 from decouple import config
 
-print("******************")
-print('RENDER' in os.environ)
-print(os.environ.get("DB_NAME"))
-print(os.environ.get("DB_USER"))
-print(os.environ.get("DB_PASSWORD"))
-print(os.environ.get("DB_HOST"))
-print(os.environ.get("DB_PORT"))
-print("******************")
-
 ENVIRONMENT = os.environ.get('DJANGO_ENVIRONMENT', 'development')
 
 # SECURITY WARNING: don't run with debug turned on in production!
