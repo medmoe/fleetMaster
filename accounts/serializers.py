@@ -9,7 +9,6 @@ from drivers.serializers import DriverSerializer
 from vehicles.models import Vehicle
 from vehicles.serializers import VehicleSerializer
 from .models import UserProfile
-from rest_auth.registration.serializers import SocialLoginSerializer
 from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
 
 # Validation and Authentication error messages
@@ -128,7 +127,3 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if not account:
             raise AuthenticationFailed(detail=AUTHENTICATION_ERROR)
         return account
-
-
-class FacebookLoginSerializer(SocialLoginSerializer):
-    adapter_class = FacebookOAuth2Adapter

@@ -67,6 +67,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -151,8 +152,8 @@ AUTHENTICATION_BACKENDS = (
 SOCIALACCOUNT_PROVIDERS = {
     'facebook': {
         'APP': {
-            'client_id': os.getenv('FB_APP_ID'),       # From Step 1
-            'secret': os.getenv('FB_APP_SECRET'),      # From Step 1
+            'client_id': os.getenv('FB_APP_ID'),  # From Step 1
+            'secret': os.getenv('FB_APP_SECRET'),  # From Step 1
             'key': ''
         },
         'SCOPE': ['email', 'public_profile'],  # Permissions
