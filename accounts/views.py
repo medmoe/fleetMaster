@@ -101,7 +101,7 @@ class FacebookDataDeletionView(APIView):
             user = User.objects.filter(socialaccount__uid=facebook_user_id).first()
             if user:
                 user.delete()  # Or anonymize data instead
-                return Response({'url': 'https://yourapp.com/deletion-confirmation', 'confirmation_code': 'abc123'}, status=200)
+                return Response({'url': 'https://fleetmasters.net/deletion-confirmation', 'confirmation_code': 'abc123'}, status=200)
 
             return Response({'error': 'User not found'}, status=404)
 
