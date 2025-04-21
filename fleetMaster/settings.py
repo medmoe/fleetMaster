@@ -44,6 +44,13 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'rest_framework',
     'corsheaders',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.facebook',
+    'rest_auth',
+    'rest_auth.registration',
+    'rest_framework.authtoken',
     # My apps
     'accounts',
     'vehicles',
@@ -134,6 +141,31 @@ else:
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
+
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+)
+
+# Facebook Config
+SOCIALACCOUNT_PROVIDERS = {
+    'facebook': {
+        'APP': {
+            'client_id': os.getenv('FB_APP_ID'),       # From Step 1
+            'secret': os.getenv('FB_APP_SECRET'),      # From Step 1
+            'key': ''
+        },
+        'SCOPE': ['email', 'public_profile'],  # Permissions
+        'AUTH_PARAMS': {'auth_type': 'reauthenticate'},
+        'METHOD': 'oauth2',
+        'VERIFIED_EMAIL': True,
+    }
+}
+
+# DRF Auth Settings
+REST_AUTH_SERIALIZERS = {
+    'LOGIN_SERIALIZER': 'your_app.serializers.CustomLoginSerializer',
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {
