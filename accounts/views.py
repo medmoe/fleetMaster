@@ -1,6 +1,7 @@
 import json
 
 from rest_framework import permissions, status
+from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -52,7 +53,6 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         http_host = request.META.get('HTTP_HOST')
         secure = http_host and not request.META.get('HTTP_HOST').startswith('127.0.0.1')
 
-
         response.set_cookie(key='refresh', value=response.data['refresh'], httponly=True, samesite='None', secure=True)
         response.set_cookie(key='access', value=response.data['access'], httponly=True, samesite="None", secure=True)
         response.data.pop('refresh')
@@ -86,6 +86,8 @@ class TokenVerificationView(TokenRefreshView):
 
 
 class FacebookDataDeletionView(APIView):
+    permission_classes = [AllowAny, ]
+
     def post(self, request):
         try:
             data = json.loads(request.body)
