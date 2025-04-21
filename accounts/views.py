@@ -51,8 +51,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         secure = http_host and not request.META.get('HTTP_HOST').startswith('127.0.0.1')
 
 
-        response.set_cookie(key='refresh', value=response.data['refresh'], httponly=True, samesite='None', secure=secure)
-        response.set_cookie(key='access', value=response.data['access'], httponly=True, samesite="None", secure=secure)
+        response.set_cookie(key='refresh', value=response.data['refresh'], httponly=True, samesite='None', secure=True)
+        response.set_cookie(key='access', value=response.data['access'], httponly=True, samesite="None", secure=True)
         response.data.pop('refresh')
         response.data.pop('access')
         return response
