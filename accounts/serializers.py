@@ -9,7 +9,6 @@ from drivers.serializers import DriverSerializer
 from vehicles.models import Vehicle
 from vehicles.serializers import VehicleSerializer
 from .models import UserProfile
-from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
 
 # Validation and Authentication error messages
 MISSING_USER_DATA_ERROR = "Required user data is missing."
