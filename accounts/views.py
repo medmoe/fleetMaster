@@ -1,3 +1,5 @@
+import json
+
 from rest_framework import permissions, status
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -81,3 +83,27 @@ class TokenVerificationView(TokenRefreshView):
                 else:
                     return Response({"message": "Access token expired and no refresh token given."}, status=status.HTTP_401_UNAUTHORIZED)
         return Response({"message": "No tokens provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FacebookDataDeletionView(APIView):
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            facebook_user_id = data.get('user_id')
+
+            # 1. Verify the signed_request (optional but recommended)
+            # See: https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback/
+
+            # 2. Delete user data (example)
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+
+            user = User.objects.filter(socialaccount__uid=facebook_user_id).first()
+            if user:
+                user.delete()  # Or anonymize data instead
+                return Response({'url': 'https://yourapp.com/deletion-confirmation', 'confirmation_code': 'abc123'}, status=200)
+
+            return Response({'error': 'User not found'}, status=404)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
