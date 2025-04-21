@@ -24,6 +24,6 @@ urlpatterns = [
     path('vehicles/', include("vehicles.urls")),
     path('maintenance/', include('maintenance.urls')),
     path('auth/', include("allauth.urls")),
-    path('rest-auth/', include('rest_auth.urls')),
-    path('rest-auth/registration/', include('rest_auth.registration.urls')),
+    path('auth/', include("dj_rest_auth.urls")),
+    path('auth/registrations/', include('dj_rest_auth.registration.urls')),
 ]
