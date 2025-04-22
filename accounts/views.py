@@ -56,10 +56,6 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
 
-        # Set secure flag to True in production
-        http_host = request.META.get('HTTP_HOST')
-        secure = http_host and not request.META.get('HTTP_HOST').startswith('127.0.0.1')
-
         response.set_cookie(key='refresh', value=response.data['refresh'], httponly=True, samesite='None', secure=True)
         response.set_cookie(key='access', value=response.data['access'], httponly=True, samesite="None", secure=True)
         response.data.pop('refresh')
