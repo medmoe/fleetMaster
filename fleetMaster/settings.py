@@ -243,6 +243,9 @@ REST_AUTH = {
     'JWT_AUTH_SAMESITE': 'None',
     'JWT_AUTH_SECURE': True,
     'SESSION_LOGIN': False,
+    'JWT_AUTH_COOKIE_DOMAIN': '.fleetmasters.net',
+    'JWT_AUTH_REFRESH_COOKIE_DOMAIN': '.fleetmasters.net',
+
 }
 
 # Cors configuration
