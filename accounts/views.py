@@ -5,6 +5,8 @@ import json
 import os
 
 from allauth.socialaccount.models import SocialAccount
+from allauth.socialaccount.providers.facebook.views import FacebookOAuth2Adapter
+from dj_rest_auth.registration.views import SocialLoginView
 from rest_framework import permissions, status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -185,3 +187,7 @@ class FacebookDataDeletionView(APIView):
         except Exception as e:
             # Log the exception e
             return Response({'error': f'Unexpected error: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FacebookLogin(SocialLoginView):
+    adapter_class = FacebookOAuth2Adapter

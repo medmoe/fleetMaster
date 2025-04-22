@@ -44,11 +44,14 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'rest_framework',
     'corsheaders',
+    'rest_auth',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.facebook',
     'rest_framework.authtoken',
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
     # My apps
     'accounts',
     'vehicles',
@@ -232,10 +235,14 @@ REST_FRAMEWORK = {
     }
 }
 
+REST_AUTH = {
+    'USE_JWT': True,
+}
+
 # Cors configuration
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWED_ORIGINS = ["http://192.168.1.180:8081", "http://localhost:5173", "http://fleetmaster-web-app.s3-website.us-east-2.amazonaws.com",
+CORS_ALLOWED_ORIGINS = ["http://192.168.1.180:8081", "http://localhost:5173",
                         "https://www.fleetmasters.net", "https://fleetmasters.net"]
 CORS_ALLOW_METHODS = [
     'DELETE',
