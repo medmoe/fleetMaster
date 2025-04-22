@@ -5,10 +5,10 @@ from rest_framework.test import APITestCase, APIClient
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 
-from .factories import UserProfileFactory, UserFactory
-from .models import UserProfile
 from drivers.factories import DriverFactory
 from vehicles.factories import VehicleFactory
+from .factories import UserProfileFactory, UserFactory
+from .models import UserProfile
 
 
 class SignUpTestCases(APITestCase):

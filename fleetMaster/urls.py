@@ -23,7 +23,7 @@ urlpatterns = [
     path('drivers/', include("drivers.urls")),
     path('vehicles/', include("vehicles.urls")),
     path('maintenance/', include('maintenance.urls')),
-    path('auth/', include("allauth.urls")),
+    path('basic/auth/', include("allauth.urls")),
     path('auth/', include("dj_rest_auth.urls")),
     path('auth/registrations/', include('dj_rest_auth.registration.urls')),
 ]
