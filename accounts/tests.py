@@ -1,5 +1,10 @@
+from unittest.mock import patch
+
+from allauth.socialaccount.models import SocialApp, SocialAccount
+from allauth.socialaccount.signals import social_account_added
 from django.contrib.auth.models import User
 from django.urls import reverse
+from django.test import TestCase, RequestFactory
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
@@ -171,3 +176,39 @@ class TokenVerificationTests(APITestCase):
         UserProfile.objects.all().delete()
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+
+class UserProfileSignalTests(TestCase):
+
+    def test_social_account_signal(self):
+        """Test that a UserProfile is created when a social account is added"""
+        # Setup
+        factory = RequestFactory()
+        request = factory.get('/')
+
+        # Create a user but delete their profile to simulate a social login without profile
+        user = User.objects.create_user(
+            username='socialuser',
+            email='social@example.com',
+            password='socialpass'
+        )
+        UserProfile.objects.filter(user=user).delete()
+        self.assertFalse(UserProfile.objects.filter(user=user).exists())
+
+        # Create a mock SocialLogin object
+        class MockSocialLogin:
+            def __init__(self, user):
+                self.user = user
+
+        sociallogin = MockSocialLogin(user)
+
+        # Manually send the signal
+        social_account_added.send(
+            sender=SocialAccount,
+            request=request,
+            sociallogin=sociallogin
+        )
+
+        # Check that a profile was created by the signal
+        self.assertTrue(UserProfile.objects.filter(user=user).exists())
