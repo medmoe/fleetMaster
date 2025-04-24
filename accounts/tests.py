@@ -178,37 +178,61 @@ class TokenVerificationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
 
-
 class UserProfileSignalTests(TestCase):
-
-    def test_social_account_signal(self):
-        """Test that a UserProfile is created when a social account is added"""
-        # Setup
-        factory = RequestFactory()
-        request = factory.get('/')
-
-        # Create a user but delete their profile to simulate a social login without profile
-        user = User.objects.create_user(
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = User.objects.create_user(
             username='socialuser',
             email='social@example.com',
             password='socialpass'
         )
-        UserProfile.objects.filter(user=user).delete()
-        self.assertFalse(UserProfile.objects.filter(user=user).exists())
+        # Ensure no profile exists initially
+        UserProfile.objects.filter(user=self.user).delete()
 
-        # Create a mock SocialLogin object
+    def test_social_account_signal_creates_profile(self):
+        """Test that a UserProfile is created when a social account is added."""
+        request = self.factory.get('/')
+
         class MockSocialLogin:
             def __init__(self, user):
                 self.user = user
+                self.account = None  # Minimal mock
 
-        sociallogin = MockSocialLogin(user)
+        sociallogin = MockSocialLogin(self.user)
 
-        # Manually send the signal
+        # Send signal
         social_account_added.send(
             sender=SocialAccount,
             request=request,
             sociallogin=sociallogin
         )
 
-        # Check that a profile was created by the signal
-        self.assertTrue(UserProfile.objects.filter(user=user).exists())
+        # Verify profile was created
+        self.assertTrue(
+            UserProfile.objects.filter(user=self.user).exists(),
+            "UserProfile was not created by the signal!"
+        )
+
+    def test_signal_with_existing_profile(self):
+        """Test that no duplicate profile is created if one exists."""
+        class MockSocialLogin:
+            def __init__(self, user):
+                self.user = user
+                self.account = None  # Minimal mock
+        UserProfile.objects.create(user=self.user)
+
+        request = self.factory.get('/')
+        sociallogin = MockSocialLogin(self.user)
+
+        social_account_added.send(
+            sender=SocialAccount,
+            request=request,
+            sociallogin=sociallogin
+        )
+
+        # Should still have exactly one profile
+        self.assertEqual(
+            UserProfile.objects.filter(user=self.user).count(),
+            1,
+            "Duplicate profile created!"
+        )
