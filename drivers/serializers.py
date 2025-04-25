@@ -1,9 +1,11 @@
 from rest_framework import serializers
 
+from vehicles.serializers import VehicleSerializer
 from .models import Driver
 
 
 class DriverSerializer(serializers.ModelSerializer):
+    vehicle_details = VehicleSerializer(source='vehicle', read_only=True)
     class Meta:
         model = Driver
         fields = [
@@ -25,6 +27,7 @@ class DriverSerializer(serializers.ModelSerializer):
             "emergency_contact_phone",
             "notes",
             "vehicle",
+            "vehicle_details",
         ]
         read_only_fields = ['profile']
 

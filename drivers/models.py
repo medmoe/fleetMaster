@@ -10,12 +10,12 @@ class EmploymentStatusChoices(models.TextChoices):
 
 class Driver(models.Model):
     profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE)
-    vehicle = models.ForeignKey("vehicles.Vehicle", on_delete=models.CASCADE)
+    vehicle = models.ForeignKey("vehicles.Vehicle", on_delete=models.CASCADE, null=True, blank=True,)
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
-    email = models.CharField(max_length=255, blank=True, unique=True, null=True)
+    email = models.CharField(max_length=255, blank=True, null=True)
     phone_number = models.CharField(max_length=100, unique=True)
-    license_number = models.CharField(max_length=100, unique=True, blank=True)
+    license_number = models.CharField(max_length=100, unique=True)
     license_expiry_date = models.DateField(blank=True)
     date_of_birth = models.DateField(blank=True)
     address = models.CharField(max_length=150, blank=True)

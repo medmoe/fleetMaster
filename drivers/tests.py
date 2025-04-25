@@ -10,6 +10,7 @@ from vehicles.factories import VehicleFactory
 from vehicles.models import Vehicle
 from .factories import DriverFactory
 from .models import Driver, EmploymentStatusChoices
+from .serializers import DriverSerializer
 
 
 class DriversListTestCases(APITestCase):
@@ -64,6 +65,9 @@ class DriversListTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Driver.objects.count(), len(self.drivers) + 1)
         self.assertTrue(Driver.objects.filter(first_name=self.data["first_name"], last_name=self.data["last_name"], email=self.data["email"]))
+        self.assertIn("vehicle_details", response.data)
+        # Assert that the vehicle details are the same as the provided vehicle
+        self.assertEqual(response.data["vehicle_details"]["id"], self.data["vehicle"])
 
     def test_successful_driver_creation_without_email(self):
         del self.data["email"]
@@ -96,6 +100,12 @@ class DriversListTestCases(APITestCase):
 
     def test_failed_driver_creation_with_no_hire_date(self):
         self.make_invalid_requests("hire_date")
+
+    def test_successful_driver_creation_without_vehicle(self):
+        self.data.pop("vehicle")
+        response = self.client.post(reverse("drivers"), data=self.data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Driver.objects.count(), len(self.drivers) + 1)
 
 
 class DriverDetailTestCases(APITestCase):
@@ -221,6 +231,16 @@ class DriverDetailTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['hire_date'][0].code, 'invalid')
         self.assertEqual(response.data['hire_date'][0], 'Date has wrong format. Use one of these formats instead: YYYY-MM-DD.')
+
+    def test_successful_update_of_driver_with_no_vehicle(self):
+        # Create a driver without a vehicle
+        driver = DriverFactory.create(profile=self.user_one, vehicle=None)
+        serializer = DriverSerializer(driver)
+        serializer.data['first_name'] = 'Updated first name'
+        serializer.data['last_name'] = 'Updated last name'
+        response = self.client.put(reverse('driver-detail', args=[driver.id]), serializer.data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
 
     def test_failed_driver_delete_with_unauthenticated_user(self):
         self.client.cookies["access"] = None
