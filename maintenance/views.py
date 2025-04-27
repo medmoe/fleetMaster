@@ -1,4 +1,6 @@
+import csv
 import datetime
+from io import TextIOWrapper
 
 from django.db import transaction
 from django.utils.timezone import now
@@ -303,3 +305,28 @@ class GeneralMaintenanceDataView(APIView):
              "part_providers": serialized_parts_providers.data
              },
             status=status.HTTP_200_OK)
+
+
+class CSVImportView(APIView):
+    permission_classes = [IsAuthenticated, ]
+
+    def post(self, request):
+        csv_file = request.FILES.get('file')
+        if not csv_file or not csv_file.name.endswith('.csv'):
+            return Response({"error": "Please upload a CSV file."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            decode_file = TextIOWrapper(csv_file.file, encoding='utf-8')
+            reader = csv.DictReader(decode_file)
+
+            existing_names = set(Part.objects.all().values_list('name', flat=True))
+            parts_to_create = []
+            for row in reader:
+                if row['name'] and row['description'] and row['name'] not in existing_names:
+                    parts_to_create.append(Part(name=row['name'], description=row['description']))
+
+            created_parts = Part.objects.bulk_create(parts_to_create)
+            serialized_parts = PartSerializer(created_parts, many=True, context={'request': request})
+            return Response(serialized_parts.data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

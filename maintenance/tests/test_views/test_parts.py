@@ -1,4 +1,6 @@
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from faker import Faker
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
@@ -6,6 +8,8 @@ from rest_framework_simplejwt.tokens import AccessToken
 from accounts.factories import UserProfileFactory
 from maintenance.factories import PartFactory
 from maintenance.models import Part
+
+fake = Faker()
 
 
 class PartsTestCases(APITestCase):
@@ -117,3 +121,69 @@ class PartDetailsTestCases(APITestCase):
         # Test DELETE method
         response = self.client.delete(reverse('part-details', args=[self.part.id]))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class CSVImportViewTestCases(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        cls.access_token = AccessToken.for_user(cls.user_profile.user)
+
+    def setUp(self):
+        self.client.cookies['access'] = self.access_token
+        # Create a sample CSV file in memory
+        self.csv_file = SimpleUploadedFile(
+            name='sample.csv',
+            content=b'name,description\npart1,description1\npart2,description2\npart3,description3',
+            content_type='text/csv'
+        )
+        self.invalid_csv_file = SimpleUploadedFile(
+            name='invalid.txt',
+            content=b'Not a valid CSV file',
+            content_type='text/plain'
+        )
+
+    def test_valid_csv_import(self):
+        response = self.client.post(reverse('upload-parts'), {'file': self.csv_file}, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Part.objects.count(), 3)
+        self.assertTrue(Part.objects.filter(name='part1').exists())
+
+    def test_invalid_csv_import(self):
+        response = self.client.post(reverse('upload-parts'), {'file': self.invalid_csv_file}, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)
+        self.assertEqual(Part.objects.count(), 0)
+
+    def test_missing_file(self):
+        response = self.client.post(reverse('upload-parts'), {}, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)
+
+    def test_csv_with_malformed_data(self):
+        response = self.client.post(reverse('upload-parts'), {'file': SimpleUploadedFile(
+            name='malformed.csv',
+            content=b'name,description, notes\npart1,description1\npart2,description2\nmalformed data',
+            content_type='text/csv'
+        )}, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Part.objects.count(), 2)
+
+    def test_large_csv_file(self):
+        large_content = b'name,description\n' + b''.join([f'part_{i},description_{i}\n'.encode() for i in range(10000)])
+        large_csv_file = SimpleUploadedFile(
+            name='large.csv',
+            content=large_content,
+            content_type='text/csv'
+        )
+        response = self.client.post(reverse('upload-parts'), {'file': large_csv_file}, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Part.objects.count(), 10000)
+
+    def test_adding_existing_parts(self):
+        PartFactory.create(name='part1')
+        PartFactory.create(name='part2')
+        response = self.client.post(reverse('upload-parts'), {'file': self.csv_file}, format='multipart')
+        print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)

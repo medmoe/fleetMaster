@@ -2,11 +2,12 @@ from django.urls import path
 
 from .views import PartsListView, PartDetailsView, ServiceProviderListView, ServiceProviderDetailsView, PartsProvidersListView, \
     PartsProviderDetailsView, PartPurchaseEventDetailsView, MaintenanceReportListView, MaintenanceReportDetailsView, \
-    MaintenanceReportOverviewView, GeneralMaintenanceDataView, ServiceProviderEventDetailsView
+    MaintenanceReportOverviewView, GeneralMaintenanceDataView, ServiceProviderEventDetailsView, CSVImportView
 
 urlpatterns = [
     path('parts/', PartsListView.as_view(), name='parts'),
     path('parts/<int:pk>/', PartDetailsView.as_view(), name='part-details'),
+    path('parts/upload-parts/', CSVImportView.as_view(), name='upload-parts'),
     path('service-providers/', ServiceProviderListView.as_view(), name='service-providers'),
     path('service-providers/<int:pk>/', ServiceProviderDetailsView.as_view(), name='service-provider-details'),
     path('parts-providers/', PartsProvidersListView.as_view(), name='parts-providers'),
