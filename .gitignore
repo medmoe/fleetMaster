@@ -14,6 +14,7 @@ env/
 
 # Ignore static files collected by Django
 static/
+staticfiles/
 
 # Ignore media files uploaded by users
 media/

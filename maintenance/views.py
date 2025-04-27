@@ -1,6 +1,7 @@
-import datetime
 import csv
+import datetime
 from io import TextIOWrapper
+
 from django.db import transaction
 from django.utils.timezone import now
 from rest_framework import status
@@ -308,6 +309,7 @@ class GeneralMaintenanceDataView(APIView):
 
 class CSVImportView(APIView):
     permission_classes = [IsAuthenticated, ]
+
     def post(self, request):
         csv_file = request.FILES.get('file')
         if not csv_file or not csv_file.name.endswith('.csv'):
@@ -320,8 +322,8 @@ class CSVImportView(APIView):
             created_count = 0
             for row in reader:
                 if row['name'] and row['description']:
-                    Part.objects.get_or_create(name=row['name'], description=row['description'])
-                    created_count += 1
+                    _, created = Part.objects.get_or_create(name=row['name'], description=row['description'])
+                    created_count = created_count + 1 if created else created_count
             return Response({"message": f"{created_count} parts created successfully."}, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
