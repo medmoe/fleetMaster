@@ -17,7 +17,7 @@ class MaintenanceChoices(models.TextChoices):
 
 
 class Part(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
 
     def __str__(self):
