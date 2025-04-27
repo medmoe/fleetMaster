@@ -327,6 +327,6 @@ class CSVImportView(APIView):
 
             created_parts = Part.objects.bulk_create(parts_to_create)
             serialized_parts = PartSerializer(created_parts, many=True, context={'request': request})
-            return Response({"parts": serialized_parts.data}, status=status.HTTP_201_CREATED)
+            return Response(serialized_parts.data, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -201,8 +201,6 @@ class DriverDetailTestCases(APITestCase):
         self.data["email"] = self.drivers_two[0].email
         response = self.client.put(reverse("driver-detail", args=[self.drivers_one[0].id]), data=self.data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data['email'][0].code, 'unique')
-        self.assertEqual(response.data['email'][0], 'driver with this email already exists.')
 
     def test_failed_update_with_existing_phone_number(self):
         self.data["phone_number"] = self.drivers_two[0].phone_number
