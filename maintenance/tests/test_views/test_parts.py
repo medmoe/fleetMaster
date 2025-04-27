@@ -180,3 +180,10 @@ class CSVImportViewTestCases(APITestCase):
         response = self.client.post(reverse('upload-parts'), {'file': large_csv_file}, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Part.objects.count(), 10000)
+
+    def test_adding_existing_parts(self):
+        PartFactory.create(name='part1')
+        PartFactory.create(name='part2')
+        response = self.client.post(reverse('upload-parts'), {'file': self.csv_file}, format='multipart')
+        print(response.data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)

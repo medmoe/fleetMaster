@@ -319,11 +319,14 @@ class CSVImportView(APIView):
             decode_file = TextIOWrapper(csv_file.file, encoding='utf-8')
             reader = csv.DictReader(decode_file)
 
-            created_count = 0
+            existing_names = set(Part.objects.all().values_list('name', flat=True))
+            parts_to_create = []
             for row in reader:
-                if row['name'] and row['description']:
-                    _, created = Part.objects.get_or_create(name=row['name'], description=row['description'])
-                    created_count = created_count + 1 if created else created_count
-            return Response({"message": f"{created_count} parts created successfully."}, status=status.HTTP_201_CREATED)
+                if row['name'] and row['description'] and row['name'] not in existing_names:
+                    parts_to_create.append(Part(name=row['name'], description=row['description']))
+
+            created_parts = Part.objects.bulk_create(parts_to_create)
+            serialized_parts = PartSerializer(created_parts, many=True, context={'request': request})
+            return Response({"parts": serialized_parts.data}, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
