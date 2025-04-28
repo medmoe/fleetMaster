@@ -11,16 +11,28 @@ class PartSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+    def create(self, validated_data):
+        profile = self.context['request'].user.userprofile
+        return Part.objects.create(profile=profile, **validated_data)
+
 class ServiceProviderSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProvider
         fields = "__all__"
+
+    def create(self, validated_data):
+        profile = self.context['request'].user.userprofile
+        return ServiceProvider.objects.create(profile=profile, **validated_data)
 
 
 class PartsProviderSerializer(serializers.ModelSerializer):
     class Meta:
         model = PartsProvider
         fields = "__all__"
+
+    def create(self, validated_data):
+        profile = self.context['request'].user.userprofile
+        return PartsProvider.objects.create(profile=profile, **validated_data)
 
 
 class PartPurchaseEventSerializer(serializers.ModelSerializer):

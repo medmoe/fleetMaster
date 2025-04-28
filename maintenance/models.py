@@ -17,6 +17,7 @@ class MaintenanceChoices(models.TextChoices):
 
 
 class Part(models.Model):
+    profile = models.ForeignKey("accounts.UserProfile", on_delete=models.SET_NULL, null=True, blank=True, related_name='parts')
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
 
@@ -25,6 +26,7 @@ class Part(models.Model):
 
 
 class ServiceProvider(models.Model):
+    profile = models.ForeignKey("accounts.UserProfile", on_delete=models.SET_NULL, null=True, blank=True, related_name='service_providers')
     name = models.CharField(max_length=100)
     service_type = models.CharField(max_length=100, choices=ServiceChoices.choices, default=ServiceChoices.MECHANIC)
     phone_number = models.CharField(max_length=100, blank=True)
@@ -35,6 +37,7 @@ class ServiceProvider(models.Model):
 
 
 class PartsProvider(models.Model):
+    profile = models.ForeignKey("accounts.UserProfile", on_delete=models.SET_NULL, null=True, blank=True, related_name='parts_providers')
     name = models.CharField(max_length=100)
     phone_number = models.CharField(max_length=100)
     address = models.TextField(blank=True)
