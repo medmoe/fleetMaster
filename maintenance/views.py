@@ -307,12 +307,8 @@ class GeneralMaintenanceDataView(APIView):
         serialized_parts = PartSerializer(Part.objects.all(), many=True, context={'request': request})
         serialized_service_providers = ServiceProviderSerializer(ServiceProvider.objects.all(), many=True, context={'request': request})
         serialized_parts_providers = PartsProviderSerializer(PartsProvider.objects.all(), many=True, context={'request': request})
-        return Response(
-            {"parts": serialized_parts.data,
-             "service_providers": serialized_service_providers.data,
-             "part_providers": serialized_parts_providers.data
-             },
-            status=status.HTTP_200_OK)
+        response_data = {"parts": serialized_parts.data, "service_providers": serialized_service_providers.data, "part_providers": serialized_parts_providers.data}
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class CSVImportView(APIView):
