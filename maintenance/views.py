@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, MaintenanceReport, ServiceProviderEvent
+from .permissions import IsOwner
 from .serializers import PartSerializer, ServiceProviderSerializer, PartsProviderSerializer, \
     PartPurchaseEventSerializer, MaintenanceReportSerializer, ServiceProviderEventSerializer
 
@@ -40,7 +41,7 @@ class PartsListView(APIView):
 
 
 class PartDetailsView(APIView):
-    permission_classes = [IsAuthenticated, ]
+    permission_classes = [IsAuthenticated, IsOwner]
 
     def get_object(self, pk):
         try:
@@ -50,11 +51,13 @@ class PartDetailsView(APIView):
 
     def get(self, request, pk):
         part = self.get_object(pk)
+        self.check_object_permissions(request, part)
         serializer = PartSerializer(part)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):
         part = self.get_object(pk)
+        self.check_object_permissions(request, part)
         serializer = PartSerializer(part, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -63,6 +66,7 @@ class PartDetailsView(APIView):
 
     def delete(self, request, pk):
         part = self.get_object(pk)
+        self.check_object_permissions(request, part)
         part.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -84,7 +88,7 @@ class ServiceProviderListView(APIView):
 
 
 class ServiceProviderDetailsView(APIView):
-    permission_classes = [IsAuthenticated, ]
+    permission_classes = [IsAuthenticated, IsOwner]
 
     def get_object(self, pk):
         try:
@@ -94,11 +98,13 @@ class ServiceProviderDetailsView(APIView):
 
     def get(self, request, pk):
         provider = self.get_object(pk)
+        self.check_object_permissions(request, provider)
         serializer = ServiceProviderSerializer(provider)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):
         provider = self.get_object(pk)
+        self.check_object_permissions(request, provider)
         serializer = ServiceProviderSerializer(provider, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -107,6 +113,7 @@ class ServiceProviderDetailsView(APIView):
 
     def delete(self, request, pk):
         provider = self.get_object(pk)
+        self.check_object_permissions(request, provider)
         provider.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -128,7 +135,7 @@ class PartsProvidersListView(APIView):
 
 
 class PartsProviderDetailsView(APIView):
-    permission_classes = [IsAuthenticated, ]
+    permission_classes = [IsAuthenticated, IsOwner]
 
     def get_object(self, pk):
         try:
@@ -138,11 +145,13 @@ class PartsProviderDetailsView(APIView):
 
     def get(self, request, pk):
         provider = self.get_object(pk)
+        self.check_object_permissions(request, provider)
         serializer = PartsProviderSerializer(provider)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):
         provider = self.get_object(pk)
+        self.check_object_permissions(request, provider)
         serializer = PartsProviderSerializer(provider, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -151,6 +160,7 @@ class PartsProviderDetailsView(APIView):
 
     def delete(self, request, pk):
         provider = self.get_object(pk)
+        self.check_object_permissions(request, provider)
         provider.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -295,10 +305,8 @@ class GeneralMaintenanceDataView(APIView):
 
     def get(self, request):
         serialized_parts = PartSerializer(Part.objects.all(), many=True, context={'request': request})
-        serialized_service_providers = ServiceProviderSerializer(ServiceProvider.objects.all(), many=True,
-                                                                 context={'request': request})
-        serialized_parts_providers = PartsProviderSerializer(PartsProvider.objects.all(), many=True,
-                                                             context={'request': request})
+        serialized_service_providers = ServiceProviderSerializer(ServiceProvider.objects.all(), many=True, context={'request': request})
+        serialized_parts_providers = PartsProviderSerializer(PartsProvider.objects.all(), many=True, context={'request': request})
         return Response(
             {"parts": serialized_parts.data,
              "service_providers": serialized_service_providers.data,

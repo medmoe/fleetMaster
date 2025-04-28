@@ -13,6 +13,7 @@ class PartFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Part
 
+    profile = factory.SubFactory("accounts.factories.UserProfileFactory")
     name = factory.Faker('name')
     description = factory.Faker('text')
 
@@ -21,6 +22,7 @@ class ServiceProviderFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = ServiceProvider
 
+    profile = factory.SubFactory("accounts.factories.UserProfileFactory")
     name = factory.Faker("name")
     service_type = factory.Iterator([choice[0] for choice in ServiceChoices])
     phone_number = factory.Faker('phone_number')
@@ -31,6 +33,7 @@ class PartsProviderFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = PartsProvider
 
+    profile = factory.SubFactory("accounts.factories.UserProfileFactory")
     name = factory.Faker("name")
     phone_number = factory.Faker('phone_number')
     address = factory.Faker("address")

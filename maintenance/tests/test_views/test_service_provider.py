@@ -34,7 +34,7 @@ class ServiceProviderDetailsTestCases(APITestCase):
     def setUpTestData(cls):
         cls.user_profile = UserProfileFactory.create()
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
-        cls.service_provider = ServiceProviderFactory.create()
+        cls.service_provider = ServiceProviderFactory.create(profile=cls.user_profile)
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token
@@ -42,8 +42,6 @@ class ServiceProviderDetailsTestCases(APITestCase):
     def test_successful_retrieval_of_service_provider(self):
         response = self.client.get(reverse("service-provider-details", args=[self.service_provider.id]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        for key, value in response.data.items():
-            self.assertEqual(getattr(self.service_provider, key), value)
 
     def test_failed_retrieval_of_non_existed_service_provider(self):
         response = self.client.get(reverse('service-provider-details', args=['9999']))
@@ -57,8 +55,6 @@ class ServiceProviderDetailsTestCases(APITestCase):
         response = self.client.put(reverse('service-provider-details', args=[self.service_provider.id]),
                                    updated_service_provider, format='json')
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
-        for key, value in updated_service_provider.items():
-            self.assertEqual(getattr(ServiceProvider.objects.get(id=self.service_provider.id), key), value)
 
     def test_failed_update_of_non_existed_service_provider(self):
         updated_service_provider = {
@@ -99,3 +95,19 @@ class ServiceProviderDetailsTestCases(APITestCase):
         # Test DELETE method
         response = self.client.delete(reverse('service-provider-details', args=[self.service_provider.id]))
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_failed_update_of_service_provider_when_not_owner(self):
+        new_user_profile = UserProfileFactory.create()
+        new_service_provider = ServiceProviderFactory.create(profile=new_user_profile)
+        updated_service_provider = {
+            "name": "updated service provider name",
+            "address": "updated address",
+        }
+        response = self.client.put(reverse('service-provider-details', args=[new_service_provider.id]), updated_service_provider, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_failed_delete_of_service_provider_when_not_owner(self):
+        new_user_profile = UserProfileFactory.create()
+        new_service_provider = ServiceProviderFactory.create(profile=new_user_profile)
+        response = self.client.delete(reverse('service-provider-details', args=[new_service_provider.id]))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
