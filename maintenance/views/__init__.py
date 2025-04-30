@@ -1,0 +1,6 @@
+from .events import PartPurchaseEventDetailsView, ServiceProviderEventDetailsView
+from .maintenance_insights import MaintenanceReportOverviewView, GeneralMaintenanceDataView
+from .part import PartsListView, PartDetailsView, CSVImportView
+from .parts_provider import PartsProvidersListView, PartsProviderDetailsView
+from .reports import MaintenanceReportListView, MaintenanceReportDetailsView
+from .service_provider import ServiceProviderListView, ServiceProviderDetailsView

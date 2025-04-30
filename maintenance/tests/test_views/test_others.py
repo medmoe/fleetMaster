@@ -68,3 +68,14 @@ class GeneralMaintenanceDataTests(APITestCase):
                 ("part_providers", self.parts_providers)):
             self.assertIn(key, response.data)
             self.assertEqual(len(response.data[key]), len(items))
+
+
+class FleetWideMaintenanceSummaryTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        cls.access_token = AccessToken.for_user(cls.user_profile.user)
+
+    def setUp(self):
+        self.client.cookies['access'] = self.access_token
+
