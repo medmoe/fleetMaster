@@ -1,5 +1,5 @@
 import datetime
-
+from django.db.models import Sum
 import factory
 from faker import Faker
 
@@ -65,6 +65,12 @@ class MaintenanceReportFactory(factory.django.DjangoModelFactory):
             for part_purchase_event in extracted:
                 PartPurchaseEventFactory(maintenance_report=self, **part_purchase_event)
         self.save()
+
+    # @property
+    # def total_cost(self):
+    #     parts_cost = self.part_purchase_events.aggregate(total=Sum('cost'))['total'] or 0
+    #     services_cost = self.service_provider_events.aggregate(total=Sum('cost'))['total'] or 0
+    #     return parts_cost + services_cost
 
 
 class PartPurchaseEventFactory(factory.django.DjangoModelFactory):
