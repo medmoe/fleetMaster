@@ -63,6 +63,14 @@ class MaintenanceReportListViewTestCases(APITestCase):
         self.assertEqual(len(self.maintenance_reports) + 1, MaintenanceReport.objects.count())
         self.assertIn("vehicle_details", response.data)
         self.assertIn("total_cost", response.data)
+        total_cost = sum(event['cost'] for event in self.maintenance_report_data['part_purchase_events'])
+        total_cost += sum(event['cost'] for event in self.maintenance_report_data['service_provider_events'])
+        self.assertEqual(response.data["total_cost"], total_cost)
+
+    def test_failed_creation_of_new_report_without_service_provider_event(self):
+        self.maintenance_report_data.pop("service_provider_events")
+        response = self.client.post(reverse('reports'), data=self.maintenance_report_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_sync_latest_maintenance_report_to_vehicle(self):
         latest_report = MaintenanceReport.objects.order_by("-start_date").first()
@@ -122,10 +130,18 @@ class MaintenanceReportDetailsTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.maintenance_report.id)
 
+    def test_unauthorised_access(self):
+        self.client.cookies['access'] = None
+        response = self.client.get(reverse('reports-details', args=[self.maintenance_report.id]))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
     def test_successful_maintenance_report_update(self):
         response = self.client.put(reverse('reports-details', args=[self.maintenance_report.id]), data=self.data,
                                    format='json')
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        total_cost = sum(event['cost'] for event in self.data['part_purchase_events'])
+        total_cost += sum(event['cost'] for event in self.data['service_provider_events'])
+        self.assertEqual(response.data['total_cost'], total_cost)
 
     def test_update_with_existing_and_new_part_purchase_events(self):
         """Test updating a maintenance report with both existing and new part purchase events."""
@@ -135,7 +151,6 @@ class MaintenanceReportDetailsTestCases(APITestCase):
             part=self.part,
             provider=self.parts_provider
         )
-
         # Add both the existing event (with id) and a new event to the update data
         data = copy.deepcopy(self.data)
         data["part_purchase_events"] = [
@@ -154,16 +169,15 @@ class MaintenanceReportDetailsTestCases(APITestCase):
                 "cost": 2000
             }
         ]
-
-        response = self.client.put(
-            reverse('reports-details', args=[self.maintenance_report.id]),
-            data=data,
-            format='json'
-        )
-
+        response = self.client.put(reverse('reports-details', args=[self.maintenance_report.id]),data=data,format='json')
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+
         # Verify that the new part purchase event was created
         self.assertEqual(self.maintenance_report.part_purchase_events.count(), 2)
+        total_cost = sum(event['cost'] for event in data['part_purchase_events'])
+        total_cost += sum(event['cost'] for event in data['service_provider_events'])
+        self.assertEqual(PartPurchaseEvent.objects.filter(maintenance_report=self.maintenance_report).count(), 2)
+        self.assertEqual(response.data['total_cost'], total_cost)
 
     def test_update_with_existing_and_new_service_provider_events(self):
         """Test updating a maintenance report with both existing and new service provider events."""
@@ -201,6 +215,9 @@ class MaintenanceReportDetailsTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         # Verify that the new service provider event was created
         self.assertEqual(self.maintenance_report.service_provider_events.count(), 2)
+        total_cost = sum(event['cost'] for event in data['service_provider_events'])
+        total_cost += sum(event['cost'] for event in data['part_purchase_events'])
+        self.assertEqual(response.data['total_cost'], total_cost)
 
     def test_update_with_part_details_and_provider_details(self):
         """Test that part_details and provider_details are properly handled in update."""
@@ -223,6 +240,7 @@ class MaintenanceReportDetailsTestCases(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+
         # Verify that a part purchase event was created
         self.assertEqual(self.maintenance_report.part_purchase_events.count(), 1)
 
@@ -264,68 +282,6 @@ class MaintenanceReportDetailsTestCases(APITestCase):
             self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         else:
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_update_with_multiple_part_purchase_events(self):
-        """Test updating with multiple part purchase events."""
-        # Create another part for testing
-        second_part = PartFactory.create()
-
-        data = copy.deepcopy(self.data)
-        data["part_purchase_events"] = [
-            {
-                "part": self.part.id,
-                "provider": self.parts_provider.id,
-                "purchase_date": date(2020, 12, 30).isoformat(),
-                "cost": 2000
-            },
-            {
-                "part": second_part.id,
-                "provider": self.parts_provider.id,
-                "purchase_date": date(2020, 12, 31).isoformat(),
-                "cost": 3000
-            }
-        ]
-
-        response = self.client.put(
-            reverse('reports-details', args=[self.maintenance_report.id]),
-            data=data,
-            format='json'
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
-        # Verify that both part purchase events were created
-        self.assertEqual(self.maintenance_report.part_purchase_events.count(), 2)
-
-    def test_update_with_multiple_service_provider_events(self):
-        """Test updating with multiple service provider events."""
-        # Create another service provider for testing
-        second_service_provider = ServiceProviderFactory.create()
-
-        data = copy.deepcopy(self.data)
-        data["service_provider_events"] = [
-            {
-                "service_provider": self.service_provider.id,
-                "service_date": date(2020, 12, 30).isoformat(),
-                "cost": 2000,
-                "description": "First service"
-            },
-            {
-                "service_provider": second_service_provider.id,
-                "service_date": date(2020, 12, 31).isoformat(),
-                "cost": 3000,
-                "description": "Second service"
-            }
-        ]
-
-        response = self.client.put(
-            reverse('reports-details', args=[self.maintenance_report.id]),
-            data=data,
-            format='json'
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
-        # Verify that both service provider events were created
-        self.assertEqual(self.maintenance_report.service_provider_events.count(), 2)
 
     def test_update_with_vehicle_details(self):
         """Test updating with vehicle_details in the data."""

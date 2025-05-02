@@ -56,8 +56,7 @@ class FleetWideOverviewViewTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_successful_fleet_wide_overview_retrieval(self):
-        for report in MaintenanceReport.objects.all():
-            print(report.start_date)
         response = self.client.get(reverse('fleet-wide-overview'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        print(response.data)
+        # Assert that the response contains the correct numbers
+

@@ -54,12 +54,7 @@ class MaintenanceReport(models.Model):
     end_date = models.DateField()
     description = models.TextField(blank=True)
     mileage = models.PositiveIntegerField(blank=True, null=True)
-
-    @property
-    def total_cost(self):
-        parts_cost = self.part_purchase_events.aggregate(total=Sum('cost'))['total'] or 0
-        services_cost = self.service_provider_events.aggregate(total=Sum('cost'))['total'] or 0
-        return parts_cost + services_cost
+    total_cost = models.IntegerField(validators=[validate_positive_integer])
 
     def clean(self):
         if self.end_date < self.start_date:

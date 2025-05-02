@@ -10,10 +10,10 @@ class PartSerializer(serializers.ModelSerializer):
         model = Part
         fields = "__all__"
 
-
     def create(self, validated_data):
         profile = self.context['request'].user.userprofile
         return Part.objects.create(profile=profile, **validated_data)
+
 
 class ServiceProviderSerializer(serializers.ModelSerializer):
     class Meta:
@@ -59,7 +59,6 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
     part_purchase_events = PartPurchaseEventSerializer(many=True, required=False)
     service_provider_events = ServiceProviderEventSerializer(many=True, required=False)
     vehicle_details = VehicleSerializer(source='vehicle', read_only=True)
-    total_cost = serializers.SerializerMethodField()
 
     class Meta:
         model = MaintenanceReport
@@ -77,10 +76,7 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
             "part_purchase_events",
             "service_provider_events",
         ]
-        read_only_fields = ['profile']
-
-    def get_total_cost(self, obj):
-        return obj.total_cost
+        read_only_fields = ['profile', 'total_cost']
 
     def create(self, validated_data):
         profile = self.context['request'].user.userprofile
@@ -89,8 +85,14 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
         if not service_provider_events_data:
             raise serializers.ValidationError("At least one service provider event is required")
 
+        # Calculate total cost upfront
+        total_cost = sum(item.get('cost', 0) for item in part_purchase_events_data)
+        total_cost += sum(item.get('cost', 0) for item in service_provider_events_data)
+
         with transaction.atomic():
-            maintenance_report = MaintenanceReport.objects.create(profile=profile, **validated_data)
+            maintenance_report = MaintenanceReport.objects.create(profile=profile, total_cost=total_cost, **validated_data)
+
+            # Create related objects
             PartPurchaseEvent.objects.bulk_create(
                 [PartPurchaseEvent(maintenance_report=maintenance_report, **part_data) for part_data in part_purchase_events_data]
             )
@@ -102,13 +104,18 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         part_purchase_events_data = validated_data.pop('part_purchase_events', [])
         service_provider_events_data = validated_data.pop('service_provider_events', [])
+        validated_data.pop('vehicle_details', None)
         if not service_provider_events_data and not ServiceProviderEvent.objects.filter(maintenance_report=instance).exists():
             raise serializers.ValidationError("At least one service provider event is required")
 
-        validated_data.pop('vehicle_details', None)
+        # Calculate total cost
+        total_cost = sum(item.get('cost', 0) for item in part_purchase_events_data)
+        total_cost += sum(item.get('cost', 0) for item in service_provider_events_data)
+
         with transaction.atomic():
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
+            setattr(instance, 'total_cost', total_cost)
             instance.save()
 
             # Handle part purchase events

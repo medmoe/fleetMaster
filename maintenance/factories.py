@@ -51,6 +51,7 @@ class MaintenanceReportFactory(factory.django.DjangoModelFactory):
     end_date = factory.LazyAttribute(lambda obj: faker.date_between(start_date=obj.start_date, end_date=obj.start_date + datetime.timedelta(days=30)))
     description = factory.Faker('text')
     mileage = factory.Faker('random_int')
+    total_cost = 0
 
     @factory.post_generation
     def service_provider_events(self, create, extracted, **kwargs):
@@ -65,13 +66,6 @@ class MaintenanceReportFactory(factory.django.DjangoModelFactory):
             for part_purchase_event in extracted:
                 PartPurchaseEventFactory(maintenance_report=self, **part_purchase_event)
         self.save()
-
-    # @property
-    # def total_cost(self):
-    #     parts_cost = self.part_purchase_events.aggregate(total=Sum('cost'))['total'] or 0
-    #     services_cost = self.service_provider_events.aggregate(total=Sum('cost'))['total'] or 0
-    #     return parts_cost + services_cost
-
 
 class PartPurchaseEventFactory(factory.django.DjangoModelFactory):
     class Meta:

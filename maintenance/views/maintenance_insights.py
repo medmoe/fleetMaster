@@ -119,7 +119,7 @@ class FleetWideOverviewView(APIView):
                 filters &= Q(start_date__year=current_year - 1)
                 previous_year_reports = MaintenanceReport.objects.filter(filters)
                 previous_year_total_cost = sum([report.total_cost for report in previous_year_reports])
-                data["YoY"] = (data["total_maintenance_cost"]["year"] - previous_year_total_cost) / max(previous_year_total_cost, 1) * 100
+                data["YoY"] = self._calculate_yoy_change(data["total_maintenance_cost"]["year"], previous_year_total_cost)
                 data["vehicle_avg_cost"] = data["total_maintenance_cost"]["year"] / max(vehicles_count, 1)
             else:
                 data["filtered_data"]["core_metrics"]["total_maintenance_cost"] = sum(report.total_cost for report in requested_reports)
@@ -128,9 +128,8 @@ class FleetWideOverviewView(APIView):
                     end_date__year=parser.parse(end_date).year - 1)
                 previous_reports = MaintenanceReport.objects.filter(filters)
                 previous_reports_total_cost = sum([report.total_cost for report in previous_reports])
-                data["filtered_data"]["core_metrics"]["YoY"] = (data["filtered_data"]["core_metrics"]
-                                                                ["total_maintenance_cost"] - previous_reports_total_cost) / max(
-                    previous_reports_total_cost, 1) * 100
+                data['filtered_data']['core_metrics']['YoY'] = self._calculate_yoy_change(
+                    data["filtered_data"]["core_metrics"]["total_maintenance_cost"], previous_reports_total_cost)
                 data["filtered_data"]["core_metrics"]["vehicle_avg_cost"] = data["filtered_data"]["core_metrics"]["total_maintenance_cost"] / max(
                     vehicles_count, 1)
 
@@ -181,3 +180,9 @@ class FleetWideOverviewView(APIView):
         data[key]["good"] = health_counter["good"] / vehicles_count * 100
         data[key]["warning"] = health_counter["warning"] / vehicles_count * 100
         data[key]["critical"] = health_counter["critical"] / vehicles_count * 100
+
+    def _calculate_yoy_change(self, current_year: int, previous_year: int) -> float:
+        if previous_year == 0:
+            return 0.0
+        change = (current_year - previous_year) / previous_year * 100
+        return round(change, 2)
