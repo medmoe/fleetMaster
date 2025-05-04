@@ -41,7 +41,8 @@ class MaintenanceReportListViewTestCases(APITestCase):
                     "part": self.parts[0].id,
                     "provider": self.parts_provider.id,
                     "purchase_date": date(2020, 12, 31).isoformat(),
-                    "cost": 2000}
+                    "cost": 2000,
+                }
             ],
             "service_provider_events": [
                 {
@@ -111,7 +112,8 @@ class MaintenanceReportDetailsTestCases(APITestCase):
                     "part": self.part.id,
                     "provider": self.parts_provider.id,
                     "purchase_date": date(2020, 12, 31).isoformat(),
-                    "cost": 2000}
+                    "cost": 2000,
+                }
             ],
             "service_provider_events": [
                 {
@@ -159,17 +161,17 @@ class MaintenanceReportDetailsTestCases(APITestCase):
                 "part": self.part.id,
                 "provider": self.parts_provider.id,
                 "purchase_date": date(2020, 12, 30).isoformat(),
-                "cost": 3000
+                "cost": 3000,
             },
             {
                 # New event without id
                 "part": self.part.id,
                 "provider": self.parts_provider.id,
                 "purchase_date": date(2020, 12, 31).isoformat(),
-                "cost": 2000
+                "cost": 2000,
             }
         ]
-        response = self.client.put(reverse('reports-details', args=[self.maintenance_report.id]),data=data,format='json')
+        response = self.client.put(reverse('reports-details', args=[self.maintenance_report.id]), data=data, format='json')
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
 
         # Verify that the new part purchase event was created
@@ -278,10 +280,7 @@ class MaintenanceReportDetailsTestCases(APITestCase):
             data=data,
             format='json'
         )
-        if ServiceProviderEvent.objects.filter(maintenance_report=self.maintenance_report).exists():
-            self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
-        else:
-            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_update_with_vehicle_details(self):
         """Test updating with vehicle_details in the data."""
@@ -325,5 +324,3 @@ class MaintenanceReportDetailsTestCases(APITestCase):
             ServiceProviderEvent.objects.filter(maintenance_report_id=report_id).exists(),
             "Service provider events were not deleted with the maintenance report"
         )
-
-

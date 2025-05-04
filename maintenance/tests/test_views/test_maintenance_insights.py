@@ -1,6 +1,7 @@
 from datetime import datetime, date
 
 from django.db import transaction
+from django.db.models import Sum
 from django.urls import reverse
 from factory import RelatedFactoryList
 from factory.fuzzy import FuzzyDate
@@ -22,7 +23,7 @@ class FleetWideOverviewViewTestCases(APITestCase):
         # Mock vehicles and maintenance reports
         try:
             with transaction.atomic():
-                vehicles = VehicleFactory.create_batch(
+                cls.vehicles = VehicleFactory.create_batch(
                     size=6,
                     profile=cls.user_profile,
                     maintenance_reports=RelatedFactoryList(
@@ -43,7 +44,6 @@ class FleetWideOverviewViewTestCases(APITestCase):
                         )
                     )
                 )
-
         except Exception as e:
             print(e)
 
@@ -58,5 +58,23 @@ class FleetWideOverviewViewTestCases(APITestCase):
     def test_successful_fleet_wide_overview_retrieval(self):
         response = self.client.get(reverse('fleet-wide-overview'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
         # Assert that the response contains the correct numbers
+        total_cost = MaintenanceReport.objects.aggregate(Sum('total_cost'))['total_cost__sum']
+        self.assertEqual(response.data["total_maintenance_cost"]["year"], total_cost)
+        self.assertEqual(response.data["YoY"], 0.0) # All the reports created in the setup created with start_date=current_year
+        self.assertEqual(response.data["vehicle_avg_cost"], total_cost / len(self.vehicles))
+
+    def test_correct_number_for_vehicle_health(self):
+        # We need to modify the dates of the service in our fleet
+        # All vehicles have good health
+        for vehicle in self.vehicles:
+            vehicle.last_service_date = date(2025, 1, 1)
+            vehicle.next_service_due = date(2025, 3,1)
+        response = self.client.get(reverse('fleet-wide-overview'))
+        self.assertEqual(response.data["vehicle_avg_health"]["good"], 6.0)
+
+
+
+
 
