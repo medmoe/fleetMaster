@@ -1,8 +1,10 @@
 import datetime
 from collections import defaultdict
 from datetime import timedelta
+from typing import Optional, List, Dict
 
-from django.db.models import F, Q, Sum, ExpressionWrapper, DurationField, Avg, Case, When, FloatField
+from django.db.models import F, Q, Sum, ExpressionWrapper, DurationField, Avg, Case, When, FloatField, Count
+from django.db.models.functions import ExtractYear, ExtractMonth, ExtractQuarter
 from django.utils.timezone import now
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
@@ -10,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from maintenance.models import MaintenanceReport, Part, ServiceProvider, PartsProvider
+from maintenance.models import MaintenanceReport, Part, ServiceProvider, PartsProvider, PartPurchaseEvent
 from maintenance.serializers import MaintenanceReportSerializer, PartSerializer, ServiceProviderSerializer, PartsProviderSerializer
 from vehicles.models import Vehicle
 
@@ -60,60 +62,92 @@ class FleetWideOverviewView(APIView):
     permission_classes = [IsAuthenticated, ]
 
     def get(self, request):
-        core_metrics = {"total_maintenance_cost": {"year": 0, "month": 0, "quarter": 0},
-                        "YoY": 0.0,
-                        "vehicle_avg_cost": 0.0,
-                        "top_recurring_issues": [],
-                        }
-
-        filtered_data = {
-            "group_by": {
-                "monthly": defaultdict(lambda: [0, 0, 0.0]),  # [Total cost in the month, MoM change, vehicle avg cost]
-                "quarterly": defaultdict(lambda: [0, 0, 0.0]),  # [total cost in the quarter, QoQ change, vehicle avg cost]
-                "yearly": defaultdict(lambda: [0, 0, 0.0]),  # [total cost in the year, YoY change, vehicle avg cost]
-            }
-        }
-
-        health_checks = {
-            "vehicle_avg_health": {"good": 0.0, "warning": 0.0, "critical": 0.0},
-            "vehicle_insurance_health": {"good": 0.0, "warning": 0.0, "critical": 0.0},
-            "vehicle_license_health": {"good": 0.0, "warning": 0.0, "critical": 0.0},
-        }
-
         vehicle_type = request.query_params.get('vehicle_type', None)
         start_date = request.query_params.get('start_date', None)
         end_date = request.query_params.get('end_date', None)
         group_by = request.query_params.get('group_by', None)
+        vehicles_count = Vehicle.objects.filter(profile__user=self.request.user).count()
+        health_checks = self._get_health_checks()
 
-        vehicles_count = Vehicle.objects.filter(profile__user=request.user).count()
-
+        # Handle request when filters are not provided
         if not group_by and not end_date:
-            self._populate_core_metrics(core_metrics, requested_reports, vehicles_count, vehicle_type)
+            core_metrics = self._get_core_metrics(vehicle_type)
             return Response(data=core_metrics | health_checks, status=status.HTTP_200_OK)
 
-        if group_by:
-            self._populate_filtered_data(filtered_data, group_by, requested_reports, vehicles_count)
-        else:
-            self._populate_filtered_data(filtered_data, "monthly", requested_reports, vehicles_count)
+        grouped_metrics = {"grouped_metrics": self._get_grouped_maintenance_metrics(start_date, end_date, group_by, vehicles_count)}
+        return Response(data=grouped_metrics | health_checks, status=status.HTTP_200_OK)
 
-        return Response(data=filtered_data | health_checks, status=status.HTTP_200_OK)
+    def _get_grouped_maintenance_metrics(self, start_date: Optional[datetime.date], end_date: Optional[datetime.date], group_by: str, vehicle_count: int) -> List[Dict]:
+        """Get maintenance costs grouped by time period with change metrics.
 
-    def _populate_filtered_data(self, filtered_data, group_by, requested_reports, vehicles_count):
-        for report in requested_reports:
-            # Create keys according to grouping by type
-            key = self._get_key(group_by, report)
-            filtered_data['group_by'][group_by][key][0] += report.total_cost
-        for time_range, [current_total_cost, _, _] in filtered_data['group_by'][group_by].items():
-            previous_total_cost, _ = filtered_data['group_by'][group_by].get(time_range - 1, [0, 0])
-            if previous_total_cost:
-                filtered_data['group_by'][group_by][time_range][1] = (current_total_cost - previous_total_cost) / previous_total_cost * 100
-            filtered_data['group_by'][group_by][time_range][2] = current_total_cost / vehicles_count
+        Args:
+            start_date: Optional start date filter
+            end_date: Optional end date filter
+            group_by: Grouping strategy ('yearly', 'quarterly', 'monthly')
+            vehicle_count: Number of vehicles for average calculation
+
+        Returns:
+            List of dictionaries containing metrics for each time period
+        """
+        PERCENT = 100
+
+        # Input validation
+        if not group_by or group_by not in ("yearly", "quarterly", "monthly"):
+            group_by = "monthly"
+
+        if vehicle_count <= 0:
+            raise ValueError("vehicle_count must be positive")
+
+        # Build filters
+        filters = Q(profile__user=self.request.user)
+        if start_date and end_date:
+            filters &= Q(start_date__gte=start_date, end_date__lte=end_date)
+
+        # Define grouping strategies
+        grouping_strategies = {
+            "yearly": (ExtractYear('start_date'), "yoy_change"),
+            "quarterly": (ExtractQuarter('start_date'), "qoq_change"),
+            "monthly": (ExtractMonth('start_date'), "mom_change")
+        }
+
+        date_extractor, change_metric_key = grouping_strategies[group_by]
+
+        # Get base data
+        grouped_data = list(
+            MaintenanceReport.objects
+            .filter(filters)
+            .annotate(time_period=date_extractor)
+            .values('time_period')
+            .annotate(total_cost=Sum('total_cost'))
+            .order_by('time_period')
+        )
+
+        # Calculate derived metrics
+        for i in range(len(grouped_data)):
+            # Add vehicle average
+            grouped_data[i]["cost_per_vehicle"] = (
+                    grouped_data[i]["total_cost"] / vehicle_count * PERCENT
+            )
+
+            # Add period-over-period change (except first period)
+            if i > 0:
+                prev_cost = grouped_data[i - 1]["total_cost"]
+                current_cost = grouped_data[i]["total_cost"]
+
+                if prev_cost != 0:
+                    change_pct = (current_cost - prev_cost) / prev_cost * PERCENT
+                else:
+                    change_pct = 0.0
+
+                grouped_data[i][change_metric_key] = change_pct
+
+        return grouped_data
 
     def _get_health_checks(self):
         current = now().date()
         thirty = timedelta(days=30)
         zero = timedelta(days=0)
-        return Vehicle.objects.filter(profile__user=self.request.user).annotate(
+        raw_health_checks = Vehicle.objects.filter(profile__user=self.request.user).annotate(
             service_gap=ExpressionWrapper(
                 F('next_service_due') - F('last_service_date'), output_field=DurationField()
             ),
@@ -140,36 +174,48 @@ class FleetWideOverviewView(APIView):
             vehicle_license_health__critical=Avg(Case(When(license_gap__lte=zero, then=1), default=0.0, output_field=FloatField())) * 100
         )
 
+        return self._format_health_checks(raw_health_checks)
+
     def _format_health_checks(self, raw_health_checks):
-        pass
-    def _populate_core_metrics(self, core_metrics, requested_reports, vehicles_count, vehicle_type):
+        formatted_version = defaultdict(lambda: defaultdict(float))
+        for key, value in raw_health_checks.items():
+            [health_type, status] = key.split("__")
+            formatted_version[health_type][status] = value
+        return formatted_version
+
+    def _get_core_metrics(self, vehicle_type):
+        # Consider implementing caching using Redis in the future.
         current_year = now().year
         current_month = now().month
-        current_quarter = now().month // 3 + 1
-        top_recurring_parts = defaultdict(int)
-
-        # for report in requested_reports:
-        #     core_metrics["total_maintenance_cost"]["year"] += report.total_cost
-        #     core_metrics["total_maintenance_cost"]["month"] += report.total_cost if report.start_date.month == current_month else 0
-        #     core_metrics["total_maintenance_cost"]["quarter"] += report.total_cost if report.start_date.month - 1 // 3 + 1 == current_quarter else 0
-        #     for part_purchase_event in report.part_purchase_events.all():
-        #         top_recurring_parts[part_purchase_event.part.name] += 1
-
-        # Get previous year reports
-        filters = Q(start_date__year=current_year - 1) & Q(profile__user=self.request.user)
+        current_quarter = (current_month - 1) // 3
+        start_month = current_quarter * 3 + 1
+        end_month = start_month + 2
+        filters = Q(profile__user=self.request.user, start_date__year=current_year)
         filters &= Q(vehicle__vehicle_type=vehicle_type) if vehicle_type else Q()
-        previous_year_total_cost = MaintenanceReport.objects.filter(filters).aggregate(Sum('total_cost'))['total_cost__sum']
-        core_metrics["YoY"] = self._calculate_yoy_change(core_metrics["total_maintenance_cost"]["year"], previous_year_total_cost)
-        core_metrics["vehicle_avg_cost"] = core_metrics["total_maintenance_cost"]["year"] / max(vehicles_count, 1)
-        core_metrics["top_recurring_issues"] = sorted(top_recurring_parts.items(), key=lambda x: x[1], reverse=True)[:3]
+        maintenance_cost = MaintenanceReport.objects.filter(filters).aggregate(
+            total_maintenance_cost__year=Sum('total_cost', default=0),
+            total_maintenance_cost__quarter=Sum('total_cost', filter=Q(start_date__month__range=(start_month, end_month)), default=0),
+            total_maintenance_cost__month=Sum('total_cost', filter=Q(start_date__month=current_month), default=0),
+        )
+        top_recurring_issues = PartPurchaseEvent.objects.filter(
+            maintenance_report__profile__user=self.request.user,
+            maintenance_report__start_date__year=current_year
+        ).values('part__name').annotate(count=Count('id')).order_by('-count')[:3]
 
-    def _calculate_yoy_change(self, current_year: int, previous_year: int) -> float:
-        if not previous_year:
-            return 0.0
-        change = (current_year - previous_year) / previous_year * 100
-        return round(change, 2)
+        previous_year_total_cost = MaintenanceReport.objects.filter(
+            profile__user=self.request.user,
+            start_date__year=current_year - 1
+        ).aggregate(Sum('total_cost', default=0))['total_cost__sum']
+        yoy = (maintenance_cost['total_maintenance_cost__year'] - previous_year_total_cost) / previous_year_total_cost * 100 if previous_year_total_cost else 0.0
 
-    def _get_key(self, group_by: str, report: MaintenanceReport) -> int:
-        if group_by == "monthly": return report.start_date.month
-        if group_by == "quarterly": return report.start_date.month - 1 // 3 + 1
-        return report.start_date.year
+        return self._format_maintenance_cost(maintenance_cost) | {'yoy': yoy} | {"top_recurring_issues": list(top_recurring_issues)}
+
+    def _format_maintenance_cost(self, raw_maintenance_cost):
+        vehicle_count = Vehicle.objects.filter(profile__user=self.request.user).count()
+        formatted_version = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+        for key, value in raw_maintenance_cost.items():
+            [total_maintenance_cost, time_period] = key.split("__")
+            formatted_version[total_maintenance_cost][time_period]["total"] = value
+            formatted_version[total_maintenance_cost][time_period]["vehicle_avg"] = value / vehicle_count * 100
+
+        return formatted_version
