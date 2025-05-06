@@ -1,5 +1,5 @@
 import json
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime, date, timedelta
 
 from django.contrib.auth.models import User
@@ -160,7 +160,75 @@ class FleetWideOverviewViewTestCases(APITestCase):
             self.assertEqual(part_name, item['part__name'], f'{part_name} did not match with {item['part__name']}')
             self.assertEqual(count, item['count'], f'count of {part_name} did not match with the count of {item['part__name']}')
 
+    def test_response_structure_when_filters_are_given(self):
+        response = self.client.get(reverse('fleet-wide-overview', ), {"group_by": "monthly"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("grouped_metrics", response.data)
+        for key, container in response.data["grouped_metrics"].items():
+            self.assertIn("vehicle_avg", container)
+            self.assertIn('mom_change', container)
+
+    def test_correct_metrics_on_group_by_year(self):
+        # Load fixtures
+        fixtures = self._load_fixtures(reports='reports_fixture.json', vehicles='vehicles_fixture.json')
+        vehicles, reports = fixtures.get('vehicles', []), fixtures.get('reports', [])
+        self.assertTrue(vehicles, "vehicles fixture empty")
+        self.assertTrue(reports, "reports fixture empty")
+
+        # Manual calculations
+        calculated_cost = defaultdict(int)
+        for report in reports:
+            fields = report['fields']
+            year = datetime.strptime(fields['start_date'], "%Y-%m-%d").year
+            calculated_cost[year] += fields['total_cost']
+
+        calculated_cost = sorted(calculated_cost.items(), key=lambda x: x[0])
+        metrics = [(calculated_cost[0][0], 0.0, round(calculated_cost[0][1]/ len(vehicles), 2))]
+
+        for i in range(1, len(calculated_cost)):
+            current_year, current_total_cost = calculated_cost[i]
+            previous_year, previous_total_cost = calculated_cost[i - 1]
+            yoy_change = round((current_total_cost - previous_total_cost) / previous_total_cost * 100, 2)  if previous_total_cost else 0.0
+            metrics.append((current_year, yoy_change, round(current_total_cost / len(vehicles), 2)))
+
+        # API call
+        response = self.client.get(reverse('fleet-wide-overview'), {'group_by': "yearly"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        grouped_metrics = response.data['grouped_metrics']
+
+        # Assert returned data is correct
+        for period, change, avg in metrics:
+            self.assertTrue(period, grouped_metrics)
+            self.assertEqual(grouped_metrics[period]['yoy_change'], change)
+            self.assertEqual(grouped_metrics[period]['vehicle_avg'], avg)
+
+
+
+
+
+
+
     def _load_fixtures(self, **kwargs):
+        """loads JSON fixture files from specified paths and returns them as a dictionary.
+
+            Reads one or more JSON fixture files from the configured fixtures directory,
+            with each file loaded into a dictionary key corresponding to the keyword argument name.
+
+            Args:
+                **kwargs: Keyword arguments where:
+                         - key (str): The name to assign to the loaded fixture data
+                         - value (str): The filename (relative to FIXTURES_PATH) of the JSON file to load
+                         Example: `reports='reports.json'` will load 'reports.json' and store it
+                         under the 'reports' key in the returned dictionary.
+
+            Returns:
+                dict: A dictionary mapping each input keyword to its corresponding loaded JSON data.
+                      Example: {'reports': [...], 'events': [...]}
+
+            Raises:
+                FileNotFoundError: If any specified fixture file cannot be found.
+                JSONDecodeError: If any file contains invalid JSON.
+            """
         loaded_data = {}
         for key, path in kwargs.items():
             with open(f'{PATH}{path}', 'r') as file:

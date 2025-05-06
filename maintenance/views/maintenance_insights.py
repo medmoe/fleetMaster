@@ -1,7 +1,7 @@
 import datetime
 from collections import defaultdict
 from datetime import timedelta
-from typing import Optional, List, Dict, DefaultDict
+from typing import Optional, DefaultDict, Any
 
 from django.db.models import F, Q, Sum, ExpressionWrapper, DurationField, Avg, Case, When, FloatField, Count
 from django.db.models.functions import ExtractYear, ExtractMonth, ExtractQuarter, Round
@@ -77,7 +77,10 @@ class FleetWideOverviewView(APIView):
         grouped_metrics = {"grouped_metrics": self._get_grouped_maintenance_metrics(start_date, end_date, group_by, vehicles_count)}
         return Response(data=grouped_metrics | {"vehicle_health_metrics": vehicle_health_metrics}, status=status.HTTP_200_OK)
 
-    def _get_grouped_maintenance_metrics(self, start_date: Optional[datetime.date], end_date: Optional[datetime.date], group_by: str, vehicle_count: int) -> List[Dict]:
+    def _get_grouped_maintenance_metrics(self,
+                                         start_date: Optional[datetime.date],
+                                         end_date: Optional[datetime.date],
+                                         group_by: str, vehicle_count: int) -> DefaultDict[Any, DefaultDict[Any, str]]:
         """Get maintenance costs grouped by time period with change metrics.
 
         Args:
@@ -91,7 +94,6 @@ class FleetWideOverviewView(APIView):
         """
         PERCENT = 100
 
-        # Input validation
         if not group_by or group_by not in ("yearly", "quarterly", "monthly"):
             group_by = "monthly"
 
@@ -101,7 +103,7 @@ class FleetWideOverviewView(APIView):
         # Build filters
         filters = Q(profile__user=self.request.user)
         if start_date and end_date:
-            filters &= Q(start_date__gte=start_date, end_date__lte=end_date)
+            filters &= Q(start_date__gte=start_date, start_date__lte=end_date)
 
         # Define grouping strategies
         grouping_strategies = {
@@ -123,25 +125,23 @@ class FleetWideOverviewView(APIView):
         )
 
         # Calculate derived metrics
+        returned_data = defaultdict(lambda: defaultdict(str))
         for i in range(len(grouped_data)):
             # Add vehicle average
-            grouped_data[i]["cost_per_vehicle"] = (
-                    grouped_data[i]["total_cost"] / vehicle_count * PERCENT
-            )
+            time_period, total_cost = grouped_data[i]['time_period'], grouped_data[i]['total_cost']
+            returned_data[time_period]['vehicle_avg'] = round(total_cost / vehicle_count, 2)
 
             # Add period-over-period change (except first period)
+            change_pct = 0.0
             if i > 0:
                 prev_cost = grouped_data[i - 1]["total_cost"]
-                current_cost = grouped_data[i]["total_cost"]
 
                 if prev_cost != 0:
-                    change_pct = (current_cost - prev_cost) / prev_cost * PERCENT
-                else:
-                    change_pct = 0.0
+                    change_pct = round((total_cost - prev_cost) / prev_cost * PERCENT, 2)
 
-                grouped_data[i][change_metric_key] = change_pct
+            returned_data[time_period][change_metric_key] = change_pct
 
-        return grouped_data
+        return returned_data
 
     def _get_health_metrics(self):
         current = now().date()
