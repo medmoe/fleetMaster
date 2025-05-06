@@ -82,5 +82,33 @@
       "mileage": 247,
       "total_cost": 16684
     }
+  },
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 7,
+    "fields": {
+      "profile": 1,
+      "vehicle": 5,
+      "maintenance_type": "PREVENTIVE",
+      "start_date": "2024-11-28",
+      "end_date": "2024-12-15",
+      "description": "Watch oil offer compare resource. These prevent fine see. Cup behavior exactly.\nReligious past thank better large now. Feeling program value certain case character three. West traditional fight head.",
+      "mileage": 2168,
+      "total_cost": 12692
+    }
+  },
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 8,
+    "fields": {
+      "profile": 1,
+      "vehicle": 6,
+      "maintenance_type": "CURATIVE",
+      "start_date": "2024-10-27",
+      "end_date": "2024-11-20",
+      "description": "Score station reflect movement. When probably seek common century those. Trouble firm officer almost.\nFoot its politics poor. Head people others himself. Cup check yet environment.",
+      "mileage": 247,
+      "total_cost": 16184
+    }
   }
 ]

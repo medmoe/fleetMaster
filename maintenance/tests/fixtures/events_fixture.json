@@ -144,6 +144,54 @@
     }
   },
   {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 13,
+    "fields": {
+      "part": 4,
+      "provider": 2,
+      "maintenance_report": 7,
+      "purchase_date": "1970-10-30",
+      "cost": 3180,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 14,
+    "fields": {
+      "part": 4,
+      "provider": 2,
+      "maintenance_report": 7,
+      "purchase_date": "2017-12-29",
+      "cost": 6878,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 13,
+    "fields": {
+      "part": 4,
+      "provider": 2,
+      "maintenance_report": 8,
+      "purchase_date": "1970-10-30",
+      "cost": 3180,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 14,
+    "fields": {
+      "part": 4,
+      "provider": 2,
+      "maintenance_report": 8,
+      "purchase_date": "2017-12-29",
+      "cost": 6878,
+      "receipt": ""
+    }
+  },
+  {
     "model": "maintenance.serviceproviderevent",
     "pk": 1,
     "fields": {
@@ -211,6 +259,30 @@
       "service_provider": 1,
       "service_date": "1971-08-18",
       "cost": 6626,
+      "receipt": "",
+      "description": "Foot look tax film road than sense begin. Capital fund lose six research treatment. National involve space apply determine."
+    }
+  },
+  {
+    "model": "maintenance.serviceproviderevent",
+    "pk": 7,
+    "fields": {
+      "maintenance_report": 7,
+      "service_provider": 1,
+      "service_date": "1971-08-18",
+      "cost": 2634,
+      "receipt": "",
+      "description": "Foot look tax film road than sense begin. Capital fund lose six research treatment. National involve space apply determine."
+    }
+  },
+  {
+    "model": "maintenance.serviceproviderevent",
+    "pk": 8,
+    "fields": {
+      "maintenance_report": 8,
+      "service_provider": 1,
+      "service_date": "1971-08-18",
+      "cost": 2634,
       "receipt": "",
       "description": "Foot look tax film road than sense begin. Capital fund lose six research treatment. National involve space apply determine."
     }

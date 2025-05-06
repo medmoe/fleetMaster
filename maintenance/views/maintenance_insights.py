@@ -152,29 +152,26 @@ class FleetWideOverviewView(APIView):
                 F('next_service_due') - F('last_service_date'), output_field=DurationField()
             ),
             insurance_gap=ExpressionWrapper(
-                current - F('insurance_expiry_date'), output_field=DurationField()
+                F('insurance_expiry_date') - current, output_field=DurationField()
             ),
             license_gap=ExpressionWrapper(
-                current - F('license_expiry_date'), output_field=DurationField()
+                F('license_expiry_date') - current, output_field=DurationField()
             ),
         ).aggregate(
             # Service health metrics
             vehicle_avg_health__good=Round(Avg(Case(When(service_gap__gt=thirty, then=1), default=0.0, output_field=FloatField())) * 100, precision=2),
-            vehicle_avg_health__warning=Round(Avg(Case(When(service_gap__gt=zero, service_gap__lte=thirty, then=1), default=0.0, output_field=FloatField())) * 100,
-                                              precision=2),
+            vehicle_avg_health__warning=Round(Avg(Case(When(service_gap__gt=zero, service_gap__lte=thirty, then=1), default=0.0, output_field=FloatField())) * 100, precision=2),
             vehicle_avg_health__critical=Round(Avg(Case(When(service_gap__lte=zero, then=1), default=0.0, output_field=FloatField())) * 100, precision=2),
 
             # Insurance health metrics
             vehicle_insurance_health__good=Round(Avg(Case(When(insurance_gap__gt=thirty, then=1), default=0.0, output_field=FloatField())) * 100, precision=2),
-            vehicle_insurance_health__warning=Round(
-                Avg(Case(When(insurance_gap__gt=zero, insurance_gap__lte=thirty, then=1), default=0.0, output_field=FloatField())) * 100, precision=2),
+            vehicle_insurance_health__warning=Round(Avg(Case(When(insurance_gap__gt=zero, insurance_gap__lte=thirty, then=1), default=0.0, output_field=FloatField())) * 100, precision=2),
             vehicle_insurance_health__critical=Round(Avg(Case(When(insurance_gap__lte=zero, then=1), default=0.0, output_field=FloatField())) * 100, precision=2),
 
             # License health metrics
             vehicle_license_health__good=Round(Avg(Case(When(license_gap__gt=thirty, then=1), default=0.0, output_field=FloatField())) * 100, precision=2),
-            vehicle_license_health__warning=Round(Avg(Case(When(license_gap__gt=zero, license_gap__lte=thirty, then=1), default=0.0, output_field=FloatField())) * 100,
-                                                  precision=2),
-            vehicle_license_health__critical=Round(Avg(Case(When(license_gap__lte=zero, then=1), default=0.0, output_field=FloatField())) * 100, prevision=2)
+            vehicle_license_health__warning=Round(Avg(Case(When(license_gap__gt=zero, license_gap__lte=thirty, then=1), default=0.0, output_field=FloatField())) * 100, precision=2),
+            vehicle_license_health__critical=Round(Avg(Case(When(license_gap__lte=zero, then=1), default=0.0, output_field=FloatField())) * 100, precision=2)
         )
 
         return self._format_health_metrics(raw_health_metrics)
@@ -215,7 +212,7 @@ class FleetWideOverviewView(APIView):
         top_recurring_issues = PartPurchaseEvent.objects.filter(
             maintenance_report__profile__user=self.request.user,
             maintenance_report__start_date__year=current_year
-        ).values('part__name').annotate(count=Count('id')).order_by('-count')[:3]
+        ).values('part__name').annotate(count=Count('id')).order_by('-count', 'part__name')[:3]
 
         previous_year_total_cost = MaintenanceReport.objects.filter(
             profile__user=self.request.user,

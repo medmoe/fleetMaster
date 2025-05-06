@@ -1,6 +1,7 @@
 import json
-from datetime import datetime, date, timezone
-from unittest.mock import patch
+from collections import Counter
+from datetime import datetime, date, timedelta
+
 from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework import status
@@ -58,48 +59,111 @@ class FleetWideOverviewViewTestCases(APITestCase):
             def get_quarter(m: int) -> int:
                 return (m - 1) // 3 + 1
 
-            today = date(2025, 5, 1) # According to the fixtures, this date value represents today's date
+            nonlocal today
             date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
             if month:
                 return date_obj.year == today.year and date_obj.month == today.month
 
             return date_obj.year == today.year and get_quarter(date_obj.month) == get_quarter(today.month)
 
-        try:
-            with open(f'{PATH}reports_fixture.json', 'r') as reports_file, open(f'{PATH}vehicles_fixture.json', 'r') as vehicles_file:
-                vehicles, reports = json.load(vehicles_file), json.load(reports_file)
-        except FileNotFoundError:
-            self.fail("Fixture files not found")
-
+        # Load fixtures
+        fixtures = self._load_fixtures(reports='reports_fixture.json', vehicles='vehicles_fixture.json')
+        reports, vehicles = fixtures.get('reports', []), fixtures.get('vehicles', [])
         self.assertTrue(vehicles, "Vehicle fixtures empty")
         self.assertTrue(reports, "Report fixtures empty")
 
+        # API call
         response = self.client.get(reverse('fleet-wide-overview'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Assert returned core metrics are correct
-        yearly, monthly, quarterly = 0, 0, 0
+        current_year, current_month, current_quarter = 0, 0, 0
+        previous_year_cost = 0
+        today = date(2025, 5, 1)  # According to the fixtures, this date value represents today's date
         for report in reports:
             total = report['fields']['total_cost']
             start_date = report['fields']['start_date']
-            yearly += total
-            monthly += total if is_current(start_date) else 0
-            quarterly += total if is_current(start_date, month=False) else 0
+            if datetime.strptime(start_date, "%Y-%m-%d").date().year == today.year:
+                current_year += total
+            else:
+                previous_year_cost += total
+            current_month += total if is_current(start_date) else 0
+            current_quarter += total if is_current(start_date, month=False) else 0
 
-        for key, expected_cost in zip(['year', 'quarter', 'month'], [yearly, quarterly, monthly]):
+        for key, expected_cost in zip(['year', 'quarter', 'month'], [current_year, current_quarter, current_month]):
             self.assertEqual(response.data['total_maintenance_cost'][key]['total'], expected_cost)
             self.assertEqual(response.data['total_maintenance_cost'][key]['vehicle_avg'], round(expected_cost / len(vehicles), 2))
 
-        self.assertEqual(response.data['yoy'], 0.0)  # Our data has no reports in the previous year
+        self.assertTrue(previous_year_cost != 0)
+        self.assertEqual(response.data['yoy'], round((current_year - previous_year_cost) / previous_year_cost * 100, 2))
 
     def test_vehicle_health_metrics_are_correct(self):
-        pass
+        def parse_date(date_str: str) -> date:
+            return datetime.strptime(date_str, "%Y-%m-%d").date()
 
-    def test_correct_number_for_vehicle_health(self):
-        # We need to modify the dates of the service in our fleet
-        # All vehicles have good health
-        for vehicle in self.vehicles:
-            vehicle.last_service_date = date(2025, 1, 1)
-            vehicle.next_service_due = date(2025, 3, 1)
+        def get_condition(duration: timedelta) -> str:
+            if duration > timedelta(days=30): return 'good'
+            if duration > timedelta(days=0): return 'warning'
+            return 'critical'
+
+        # Load fixtures
+        fixtures = self._load_fixtures(vehicles="vehicles_fixture.json")
+        vehicles = fixtures.get('vehicles', [])
+        self.assertTrue(vehicles, "Vehicles fixture empty")
+
+        # API call and manual calculations
         response = self.client.get(reverse('fleet-wide-overview'))
-        self.assertEqual(response.data["vehicle_avg_health"]["good"], 6.0)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        calculated_metrics = {"vehicle_avg_health": {'good': 0.0, 'warning': 0.0, 'critical': 0.0},
+                              "vehicle_insurance_health": {'good': 0.0, 'warning': 0.0, 'critical': 0.0},
+                              "vehicle_license_health": {'good': 0.0, 'warning': 0.0, 'critical': 0.0}}
+        for vehicle in vehicles:
+            fields = vehicle['fields']
+            calculated_metrics['vehicle_avg_health'][get_condition(parse_date(fields['next_service_due']) - parse_date(fields['last_service_date']))] += 1.0
+            calculated_metrics['vehicle_insurance_health'][get_condition(parse_date(fields['insurance_expiry_date']) - date.today())] += 1.0
+            calculated_metrics['vehicle_license_health'][get_condition(parse_date(fields['license_expiry_date']) - date.today())] += 1.0
+
+        for key in calculated_metrics.keys():
+            for condition, count in calculated_metrics[key].items():
+                calculated_metrics[key][condition] = count / len(vehicles) * 100
+
+        # Assert fleet health metrics are correct
+        vehicle_health_metrics = response.data['vehicle_health_metrics']
+        for key in calculated_metrics.keys():
+            for condition, avg in calculated_metrics[key].items():
+                self.assertEqual(vehicle_health_metrics[key][condition], avg, f'{key} metric with {condition} is not correct')
+
+    def test_top_recurring_part_issues(self):
+        def is_current_year(date_str: str) -> bool:
+            return datetime.strptime(date_str, "%Y-%m-%d").year == 2025  # Fixed year due to the nature of our fixtures
+
+        # Load fixtures
+        fixtures = self._load_fixtures(reports='reports_fixture.json', events='events_fixture.json', parts='parts_fixture.json')
+        reports, events, parts = fixtures.get('reports', []), fixtures.get('events', []), fixtures.get('parts', [])
+        self.assertTrue(reports, "reports fixture empty")
+        self.assertTrue(events, 'events fixture empty')
+        self.assertTrue(parts, 'parts fixture empty')
+
+        # API call
+        response = self.client.get(reverse('fleet-wide-overview'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Manual calculations
+        report_ids = set([report['pk'] for report in reports if is_current_year(report['fields']['start_date'])])
+        parts = {part['pk']: part['fields']['name'] for part in parts}
+        part_names_counter = [(parts[part_id], count) for part_id, count in Counter([event['fields']['part'] for event in events if event['model'] == 'maintenance.partpurchaseevent' and event['fields']['maintenance_report'] in report_ids]).items()]
+        top_repeated_names = sorted(part_names_counter, key=lambda x: (-x[1], x[0]))[:3]
+
+        # Assert API response values are correct
+        self.assertEqual(len(response.data['top_recurring_issues']), len(top_repeated_names))
+        for [part_name, count], item in zip(top_repeated_names, response.data['top_recurring_issues']):
+            self.assertEqual(part_name, item['part__name'], f'{part_name} did not match with {item['part__name']}')
+            self.assertEqual(count, item['count'], f'count of {part_name} did not match with the count of {item['part__name']}')
+
+    def _load_fixtures(self, **kwargs):
+        loaded_data = {}
+        for key, path in kwargs.items():
+            with open(f'{PATH}{path}', 'r') as file:
+                loaded_data[key] = json.load(file)
+        return loaded_data
+
