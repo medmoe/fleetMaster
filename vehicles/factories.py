@@ -9,7 +9,7 @@ class VehicleFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Vehicle
 
-    profile = factory.SubFactory("accounts.factories.UserProfileFactory")
+    profile = None
     registration_number = factory.Sequence(lambda n: f'REG{n:05d}')
     make = factory.Faker('word')
     model = factory.Faker('word')

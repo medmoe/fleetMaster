@@ -1,0 +1,82 @@
+[
+  {
+    "model": "maintenance.part",
+    "pk": 1,
+    "fields": {
+      "name": "Oil Filter",
+      "description": "Removes contaminants from engine oil."
+    }
+  },
+  {
+    "model": "maintenance.part",
+    "pk": 2,
+    "fields": {
+      "name": "Air Filter",
+      "description": "Filters air entering the engine for combustion."
+    }
+  },
+  {
+    "model": "maintenance.part",
+    "pk": 3,
+    "fields": {
+      "name": "Brake Pad",
+      "description": "Applies pressure to brake rotors to slow the vehicle."
+    }
+  },
+  {
+    "model": "maintenance.part",
+    "pk": 4,
+    "fields": {
+      "name": "Spark Plug",
+      "description": "Ignites fuel-air mixture in engine cylinders."
+    }
+  },
+  {
+    "model": "maintenance.part",
+    "pk": 5,
+    "fields": {
+      "name": "Fuel Filter",
+      "description": "Filters impurities from fuel before it reaches the engine."
+    }
+  },
+  {
+    "model": "maintenance.part",
+    "pk": 6,
+    "fields": {
+      "name": "Timing Belt",
+      "description": "Synchronizes the rotation of engine components."
+    }
+  },
+  {
+    "model": "maintenance.part",
+    "pk": 7,
+    "fields": {
+      "name": "Battery",
+      "description": "Provides electrical power to start the engine."
+    }
+  },
+  {
+    "model": "maintenance.part",
+    "pk": 8,
+    "fields": {
+      "name": "Alternator",
+      "description": "Generates electricity to charge the battery and power the vehicle."
+    }
+  },
+  {
+    "model": "maintenance.part",
+    "pk": 9,
+    "fields": {
+      "name": "Radiator",
+      "description": "Cools engine coolant to prevent overheating."
+    }
+  },
+  {
+    "model": "maintenance.part",
+    "pk": 10,
+    "fields": {
+      "name": "Water Pump",
+      "description": "Circulates coolant through the engine and radiator."
+    }
+  }
+]

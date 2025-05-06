@@ -1,0 +1,36 @@
+[
+  {
+    "model": "auth.user",
+    "pk": 1,
+    "fields": {
+      "password": "pbkdf2_sha256$216000$dummy$hashedpasswordstring",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "testuser",
+      "first_name": "John",
+      "last_name": "Doe",
+      "email": "john.doe@example.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2025-05-05T20:00:00Z",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "accounts.userprofile",
+    "pk": 1,
+    "fields": {
+      "user": 1,
+      "phone": "558-376-2491",
+      "address": "8309 Zachary Estates\nWest Andrew, IN 12455",
+      "city": "Lake Tina",
+      "state": "Illinois",
+      "country": "Pakistan",
+      "zip_code": "14363",
+      "sign_up_date": "2025-05-05T21:14:32.282Z",
+      "last_login_date": null,
+      "is_verified": false
+    }
+  }
+]
