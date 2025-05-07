@@ -338,8 +338,8 @@ class FleetWideOverviewView(APIView):
         """
 
         def get_period(entry):
-            if group_by == "yearly": return f'{entry['time_period']}'
-            if group_by == "quarterly": return f'{entry['year']}-Q{entry['time_period']}'
-            return f'{entry['year']}-{entry['time_period']}'
+            if group_by == "yearly": return f"{entry['time_period']}"
+            if group_by == "quarterly": return f"{entry['year']}-Q{entry['time_period']}"
+            return f"{entry['year']}-{entry['time_period']}"
 
         return [{'time_period': get_period(entry), "total_cost": entry['total_cost']} for entry in grouped_data]
