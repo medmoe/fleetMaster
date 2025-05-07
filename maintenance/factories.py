@@ -13,7 +13,6 @@ class PartFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Part
 
-    profile = None
     name = factory.Faker('name')
     description = factory.Faker('text')
 
@@ -22,7 +21,6 @@ class ServiceProviderFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = ServiceProvider
 
-    profile = None
     name = factory.Faker("name")
     service_type = factory.Iterator([choice[0] for choice in ServiceChoices])
     phone_number = factory.Faker('phone_number')
@@ -33,7 +31,6 @@ class PartsProviderFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = PartsProvider
 
-    profile = None
     name = factory.Faker("name")
     phone_number = factory.Faker('phone_number')
     address = factory.Faker("address")
@@ -44,8 +41,6 @@ class MaintenanceReportFactory(factory.django.DjangoModelFactory):
         model = MaintenanceReport
         skip_postgeneration_save = True
 
-    profile = None
-    vehicle = None
     maintenance_type = factory.Iterator([choice[0] for choice in MaintenanceChoices.choices])
     start_date = factory.LazyFunction(faker.date_object)
     end_date = factory.LazyAttribute(lambda obj: faker.date_between(start_date=obj.start_date, end_date=obj.start_date + datetime.timedelta(days=30)))
@@ -56,9 +51,8 @@ class MaintenanceReportFactory(factory.django.DjangoModelFactory):
 class PartPurchaseEventFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = PartPurchaseEvent
+        skip_postgeneration_save = True
 
-    part = None
-    provider = None
     maintenance_report = None
     purchase_date = factory.Faker('date')
     cost = factory.Faker('random_int')
@@ -74,9 +68,9 @@ class PartPurchaseEventFactory(factory.django.DjangoModelFactory):
 class ServiceProviderEventFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = ServiceProviderEvent
+        skip_postgeneration_save = True
 
     maintenance_report = None
-    service_provider = None
     service_date = factory.Faker('date')
     cost = factory.Faker('random_int')
     description = factory.Faker('text')

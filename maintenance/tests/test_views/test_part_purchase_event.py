@@ -18,9 +18,9 @@ class PartPurchaseEventDetailsTestCases(APITestCase):
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
         cls.vehicle = VehicleFactory.create(profile=cls.user_profile)
         cls.maintenance_report = MaintenanceReportFactory.create(profile=cls.user_profile, vehicle=cls.vehicle)
-        cls.part_purchase_event = PartPurchaseEventFactory.create(maintenance_report=cls.maintenance_report)
         cls.part = PartFactory.create()
         cls.parts_provider = PartsProviderFactory.create()
+        cls.part_purchase_event = PartPurchaseEventFactory.create(maintenance_report=cls.maintenance_report, part=cls.part, provider=cls.parts_provider)
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token

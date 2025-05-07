@@ -25,9 +25,7 @@ class Driver(models.Model):
     country = models.CharField(max_length=100, blank=True)
     profile_picture = models.ImageField(upload_to='profile_pics/', null=True)
     hire_date = models.DateField(blank=True)
-    employment_status = models.CharField(max_length=100,
-                                         choices=EmploymentStatusChoices.choices,
-                                         default=EmploymentStatusChoices.ACTIVE)
+    employment_status = models.CharField(max_length=100,choices=EmploymentStatusChoices.choices,default=EmploymentStatusChoices.ACTIVE)
     emergency_contact_name = models.CharField(max_length=100, blank=True)
     emergency_contact_phone = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)

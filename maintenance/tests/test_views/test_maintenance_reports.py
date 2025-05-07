@@ -2,51 +2,50 @@ import copy
 import random
 from datetime import date
 
+from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
-from accounts.factories import UserProfileFactory
+from maintenance.factories import PartPurchaseEventFactory
 from maintenance.factories import ServiceProviderEventFactory
-from maintenance.factories import ServiceProviderFactory, PartFactory, PartsProviderFactory, MaintenanceReportFactory, PartPurchaseEventFactory
-from maintenance.models import MaintenanceReport, PartPurchaseEvent, ServiceProviderEvent
-from vehicles.factories import VehicleFactory
+from maintenance.models import MaintenanceReport, PartPurchaseEvent, ServiceProviderEvent, Part, PartsProvider, ServiceProvider
+from vehicles.models import Vehicle
+
+PATH = 'maintenance/tests/fixtures/'
+MILEAGE = 20000
 
 
 class MaintenanceReportListViewTestCases(APITestCase):
-    @classmethod
-    def setUpTestData(cls):
-        MILEAGE = 20000
-
-        cls.user_profile = UserProfileFactory.create()
-        cls.access_token = AccessToken.for_user(cls.user_profile.user)
-        cls.vehicle = VehicleFactory.create(profile=cls.user_profile, mileage=MILEAGE)
-        cls.service_provider = ServiceProviderFactory.create()
-        cls.parts = PartFactory.create_batch(size=20)
-        cls.parts_provider = PartsProviderFactory.create()
-        cls.maintenance_reports = MaintenanceReportFactory.create_batch(size=5, profile=cls.user_profile, vehicle=cls.vehicle)
+    fixtures = [f'{PATH}user_and_userprofile_fixture', f'{PATH}parts_fixture', f'{PATH}providers_fixture', f'{PATH}vehicles_fixture', f'{PATH}reports_fixture',
+                f'{PATH}events_fixture']
 
     def setUp(self):
-        self.client.cookies['access'] = self.access_token
+        access_token = AccessToken.for_user(User.objects.get(pk=1))  # This is the PK of the user created from the loaded fixtures
+        self.client.cookies['access'] = access_token
+        self.reports_count = MaintenanceReport.objects.filter(profile__user__pk=1).count()
+        self.vehicle = Vehicle.objects.filter(profile__user__pk=1, pk=1).first()
+
+        # The IDs are used based on what we have in the fixtures.
         self.maintenance_report_data = {
-            "profile": self.user_profile.id,
+            "profile": 1,
             "vehicle": self.vehicle.id,
-            "start_date": date(2020, 12, 27).isoformat(),
-            "end_date": date(2020, 12, 31).isoformat(),
+            "start_date": date(2030, 12, 27).isoformat(),
+            "end_date": date(2030, 12, 31).isoformat(),
             "description": "description",
             "mileage": 55555,
             "part_purchase_events": [
                 {
-                    "part": self.parts[0].id,
-                    "provider": self.parts_provider.id,
+                    "part": 1,
+                    "provider": 1,
                     "purchase_date": date(2020, 12, 31).isoformat(),
                     "cost": 2000,
                 }
             ],
             "service_provider_events": [
                 {
-                    "service_provider": self.service_provider.id,
+                    "service_provider": 1,
                     "service_date": date(2020, 12, 31).isoformat(),
                     "cost": 2000,
                     "description": "description", }
@@ -56,12 +55,12 @@ class MaintenanceReportListViewTestCases(APITestCase):
     def test_successful_retrieval_of_maintenance_reports(self):
         response = self.client.get(reverse("reports"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['count'], len(self.maintenance_reports))
+        self.assertEqual(response.data['count'], self.reports_count)
 
     def test_successful_creation_of_new_report(self):
         response = self.client.post(reverse("reports"), data=self.maintenance_report_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(len(self.maintenance_reports) + 1, MaintenanceReport.objects.count())
+        self.assertEqual(self.reports_count + 1, MaintenanceReport.objects.filter(profile__user__pk=1).count())
         self.assertIn("vehicle_details", response.data)
         self.assertIn("total_cost", response.data)
         total_cost = sum(event['cost'] for event in self.maintenance_report_data['part_purchase_events'])
@@ -74,8 +73,9 @@ class MaintenanceReportListViewTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_sync_latest_maintenance_report_to_vehicle(self):
-        latest_report = MaintenanceReport.objects.order_by("-start_date").first()
-        self.assertEqual(latest_report.mileage, self.vehicle.mileage)
+        self.client.post(reverse("reports"), data=self.maintenance_report_data, format="json")
+        latest_report = MaintenanceReport.objects.filter(profile__user__pk=1).order_by("-start_date").first()
+        self.assertEqual(latest_report.mileage, Vehicle.objects.filter(pk=self.vehicle.id).first().mileage)
 
     def test_unauthorised_access(self):
         self.client.cookies['access'] = None
@@ -86,20 +86,17 @@ class MaintenanceReportListViewTestCases(APITestCase):
 
 
 class MaintenanceReportDetailsTestCases(APITestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.user_profile = UserProfileFactory.create()
-        cls.access_token = AccessToken.for_user(cls.user_profile.user)
-        cls.vehicle = VehicleFactory.create(profile=cls.user_profile)
-        cls.service_provider = ServiceProviderFactory.create()
-        cls.maintenance_report = MaintenanceReportFactory.create(profile=cls.user_profile)
-        cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=2, maintenance_report=cls.maintenance_report)
-        cls.service_provider_events = ServiceProviderEventFactory.create_batch(size=1, maintenance_report=cls.maintenance_report)
-        cls.part = PartFactory.create()
-        cls.parts_provider = PartsProviderFactory.create()
+    fixtures = [f'{PATH}user_and_userprofile_fixture', f'{PATH}parts_fixture', f'{PATH}providers_fixture', f'{PATH}vehicles_fixture', f'{PATH}reports_fixture',
+                f'{PATH}events_fixture']
 
     def setUp(self):
-        self.client.cookies['access'] = self.access_token
+        access_token = AccessToken.for_user(User.objects.get(pk=1))  # This is the PK of the user created from the loaded fixtures
+        self.vehicle = Vehicle.objects.filter(profile__user__pk=1, pk=1).first()
+        self.part = Part.objects.all().first()
+        self.parts_provider = PartsProvider.objects.filter(profile__user__pk=1, pk=1).first()
+        self.service_provider = ServiceProvider.objects.filter(profile__user__pk=1, pk=1).first()
+        self.maintenance_report = MaintenanceReport.objects.filter(profile__user__pk=1, pk=1).first()
+        self.client.cookies['access'] = access_token
         self.data = {
             "start_date": date(2020, 12, 27).isoformat(),
             "end_date": date(2020, 12, 31).isoformat(),

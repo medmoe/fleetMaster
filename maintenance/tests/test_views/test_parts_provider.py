@@ -13,7 +13,7 @@ class PartsProviderListTestCases(APITestCase):
     def setUpTestData(cls):
         cls.user_profile = UserProfileFactory.create()
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
-        cls.part_providers = PartsProviderFactory.create_batch(size=10)
+        cls.part_providers = PartsProviderFactory.create_batch(size=10, profile=cls.user_profile)
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token

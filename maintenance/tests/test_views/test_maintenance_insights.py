@@ -8,12 +8,50 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
+from accounts.factories import UserProfileFactory
+from maintenance.factories import PartFactory, ServiceProviderFactory, PartsProviderFactory
 from maintenance.models import MaintenanceReport
 from maintenance.utils import has_gap_between_periods, period_key_comparator
 from vehicles.models import Vehicle
 
 PATH = 'maintenance/tests/fixtures/'
 
+class MaintenanceReportOverviewTestCases(APITestCase):
+    fixtures = [f'{PATH}user_and_userprofile_fixture', f'{PATH}parts_fixture', f'{PATH}providers_fixture', f'{PATH}vehicles_fixture', f'{PATH}reports_fixture',
+                f'{PATH}events_fixture']
+
+    def setUp(self):
+        access_token = AccessToken.for_user(User.objects.get(pk=1)) # Picked a user from our loaded fixture
+        self.vehicle = Vehicle.objects.filter(profile__user__pk=1, pk=1).first()
+        self.client.cookies['access'] = access_token
+
+    def test_successful_maintenance_report_retrieval(self):
+        response = self.client.get(reverse('overview'), data={"vehicle_id": self.vehicle.id})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.vehicle.maintenance_reports.count(), len(response.data))
+
+
+class GeneralMaintenanceDataTests(APITestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        cls.access_token = AccessToken.for_user(cls.user_profile.user)
+        cls.parts = PartFactory.create_batch(size=5, profile=cls.user_profile)
+        cls.service_providers = ServiceProviderFactory.create_batch(size=5, profile=cls.user_profile)
+        cls.parts_providers = PartsProviderFactory.create_batch(size=5, profile=cls.user_profile)
+
+    def setUp(self):
+        self.client.cookies['access'] = self.access_token
+
+    def test_successful_data_retrieval(self):
+        response = self.client.get(reverse("general-data"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for key, items in (
+                ("parts", self.parts), ("service_providers", self.service_providers),
+                ("part_providers", self.parts_providers)):
+            self.assertIn(key, response.data)
+            self.assertEqual(len(response.data[key]), len(items))
 
 class FleetWideOverviewViewTestCases(APITestCase):
     fixtures = [f'{PATH}user_and_userprofile_fixture', f'{PATH}parts_fixture', f'{PATH}providers_fixture', f'{PATH}vehicles_fixture', f'{PATH}reports_fixture',

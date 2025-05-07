@@ -13,7 +13,7 @@ class ServiceProviderListTestCases(APITestCase):
     def setUpTestData(cls):
         cls.user_profile = UserProfileFactory.create()
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
-        cls.service_providers = ServiceProviderFactory.create_batch(size=10)
+        cls.service_providers = ServiceProviderFactory.create_batch(size=10, profile=cls.user_profile)
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token

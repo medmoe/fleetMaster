@@ -1,6 +1,8 @@
 import datetime
+from random import choice
 
 from django.urls import reverse
+from factory import LazyAttribute
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
@@ -19,7 +21,7 @@ class DriversListTestCases(APITestCase):
         cls.user_profile = UserProfileFactory.create()
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
         cls.vehicles = VehicleFactory.create_batch(size=5, profile=cls.user_profile)
-        cls.drivers = DriverFactory.create_batch(size=5, profile=cls.user_profile)
+        cls.drivers = DriverFactory.create_batch(size=5, profile=cls.user_profile, vehicle=LazyAttribute(lambda _: choice(cls.vehicles)))
         cls.data = {
             "vehicle": cls.vehicles[0].id,
             "first_name": "John",
@@ -115,9 +117,9 @@ class DriverDetailTestCases(APITestCase):
         cls.user_two = UserProfileFactory.create()
         cls.access_token = AccessToken.for_user(cls.user_one.user)
         cls.vehicles_one = VehicleFactory.create_batch(size=2, profile=cls.user_one)
-        cls.drivers_one = DriverFactory.create_batch(size=1, profile=cls.user_one)
+        cls.drivers_one = DriverFactory.create_batch(size=1, profile=cls.user_one, vehicle=LazyAttribute(lambda _: choice(cls.vehicles_one)))
         cls.vehicles_two = VehicleFactory.create_batch(size=2, profile=cls.user_two)
-        cls.drivers_two = DriverFactory.create_batch(size=1, profile=cls.user_two)
+        cls.drivers_two = DriverFactory.create_batch(size=1, profile=cls.user_two, vehicle=LazyAttribute(lambda _: choice(cls.vehicles_two)))
 
         cls.data = {
             "vehicle": cls.vehicles_one[0].id,
