@@ -62,6 +62,30 @@ class FleetWideOverviewView(APIView):
     permission_classes = [IsAuthenticated, ]
 
     def get(self, request):
+        """
+        Handles GET requests for retrieving vehicle-related metrics including core metrics, grouped
+        maintenance metrics, and vehicle health metrics. Provides filtered data based on query parameters.
+
+        Parameters:
+            request (HttpRequest): The HTTP request object containing query parameters.
+
+        Query Parameters:
+            vehicle_type (str, optional): Type of the vehicle to filter metrics.
+            start_date (str, optional): Start date in ISO format for filtering metrics over a date range.
+            end_date (str, optional): End date in ISO format for filtering metrics over a date range.
+            group_by (str, optional): Field to group metrics by, such as 'day', 'week', 'month'.
+
+        Returns:
+            Response: A Response object containing either:
+                - The combined dictionary of core metrics and vehicle health metrics
+                  if no grouping or date range is provided.
+                - The combined dictionary of grouped maintenance metrics and vehicle health
+                  metrics if grouping and/or date range filters are applied.
+
+        Raises:
+            None explicitly documented, but potential exceptions may arise due to query parameter
+            parsing, database queries, or other runtime issues.
+        """
         vehicle_type = request.query_params.get('vehicle_type', None)
         start_date = request.query_params.get('start_date', None)
         end_date = request.query_params.get('end_date', None)
@@ -141,6 +165,20 @@ class FleetWideOverviewView(APIView):
         return returned_data
 
     def _get_health_metrics(self):
+        """
+        Generates vehicle health metrics for the authenticated user.
+
+        This function calculates and aggregates various health metrics for vehicles
+        belonging to the authenticated user. The metrics are computed based on service
+        gap, insurance expiry gap, and license expiry gap. Each metric is categorized
+        into three health levels: good, warning, and critical. The computed metrics
+        are returned in a formatted structure.
+
+        Returns:
+            dict: A dictionary containing the aggregated health metrics for vehicles,
+            categorized into service health, insurance health, and license health,
+            with each category having percentages for good, warning, and critical levels.
+        """
         current = now().date()
         thirty = timedelta(days=30)
         zero = timedelta(days=0)
@@ -193,6 +231,33 @@ class FleetWideOverviewView(APIView):
         return formatted_version
 
     def _get_core_metrics(self, vehicle_type):
+        """
+        Calculates maintenance cost metrics and analyzes top recurring issues for a specific vehicle type
+        within the current user's maintenance reports.
+
+        Parameters:
+        vehicle_type: Optional[str]
+            The type of vehicle to filter maintenance reports. If None, metrics for all vehicle
+            types are considered.
+
+        Returns:
+        Dict
+            A dictionary containing the following keys:
+            - total_maintenance_cost__year: Total maintenance cost for the current year.
+            - total_maintenance_cost__quarter: Total maintenance cost for the current quarter.
+            - total_maintenance_cost__month: Total maintenance cost for the current month.
+            - yoy: Year-over-Year percentage change in maintenance costs compared to the previous year.
+            - top_recurring_issues: A list of the top three most frequent maintenance issues.
+
+        Notes:
+        Caching of metrics using Redis could be implemented in the future to optimize performance.
+
+        Raises:
+        KeyError
+            If any key used in calculations from aggregated results is not present.
+        ZeroDivisionError
+            If previous year's data is zero when calculating YoY percentage change.
+        """
         # Consider implementing caching using Redis in the future.
         current_year = now().year
         current_month = now().month
