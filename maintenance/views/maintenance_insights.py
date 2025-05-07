@@ -1,7 +1,6 @@
-import datetime
 from collections import defaultdict
-from datetime import timedelta
-from typing import Optional, DefaultDict, Any
+from datetime import timedelta, datetime, date
+from typing import DefaultDict, Any, Union
 
 from django.db.models import F, Q, Sum, ExpressionWrapper, DurationField, Avg, Case, When, FloatField, Count
 from django.db.models.functions import ExtractYear, ExtractMonth, ExtractQuarter, Round
@@ -14,6 +13,7 @@ from rest_framework.views import APIView
 
 from maintenance.models import MaintenanceReport, Part, ServiceProvider, PartsProvider, PartPurchaseEvent
 from maintenance.serializers import MaintenanceReportSerializer, PartSerializer, ServiceProviderSerializer, PartsProviderSerializer
+from maintenance.utils import has_gap_between_periods
 from vehicles.models import Vehicle
 
 
@@ -25,7 +25,7 @@ class MaintenanceReportOverviewView(APIView):
         Fetch maintenance reports for the current and previous years of a given vehicle.
         """
         current_year = now().year
-        previous_start_date = datetime.date(current_year - 1, 1, 1)
+        previous_start_date = date(current_year - 1, 1, 1)
         vehicle_id = request.query_params.get('vehicle_id', None)
 
         if not vehicle_id or not vehicle_id.isdigit():
@@ -77,10 +77,7 @@ class FleetWideOverviewView(APIView):
         grouped_metrics = {"grouped_metrics": self._get_grouped_maintenance_metrics(start_date, end_date, group_by, vehicles_count)}
         return Response(data=grouped_metrics | {"vehicle_health_metrics": vehicle_health_metrics}, status=status.HTTP_200_OK)
 
-    def _get_grouped_maintenance_metrics(self,
-                                         start_date: Optional[datetime.date],
-                                         end_date: Optional[datetime.date],
-                                         group_by: str, vehicle_count: int) -> DefaultDict[Any, DefaultDict[Any, str]]:
+    def _get_grouped_maintenance_metrics(self, start_date: str, end_date: str, group_by: str, vehicle_count: int) -> DefaultDict[Any, DefaultDict[str, Union[float, str]]]:
         """Get maintenance costs grouped by time period with change metrics.
 
         Args:
@@ -92,17 +89,19 @@ class FleetWideOverviewView(APIView):
         Returns:
             List of dictionaries containing metrics for each time period
         """
-        PERCENT = 100
+        PERCENTAGE_MULTIPLIER = 100
 
         if not group_by or group_by not in ("yearly", "quarterly", "monthly"):
             group_by = "monthly"
 
         if vehicle_count <= 0:
-            raise ValueError("vehicle_count must be positive")
+            raise  ValidationError("Cannot process request: No vehicles found in your fleet.")
 
         # Build filters
         filters = Q(profile__user=self.request.user)
         if start_date and end_date:
+            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
             filters &= Q(start_date__gte=start_date, start_date__lte=end_date)
 
         # Define grouping strategies
@@ -118,29 +117,27 @@ class FleetWideOverviewView(APIView):
         grouped_data = list(
             MaintenanceReport.objects
             .filter(filters)
-            .annotate(time_period=date_extractor)
-            .values('time_period')
+            .annotate(time_period=date_extractor, year=ExtractYear('start_date'))
+            .values('time_period', 'year')
             .annotate(total_cost=Sum('total_cost'))
-            .order_by('time_period')
+            .order_by('year', 'time_period')
         )
-
+        grouped_data = self._format_grouped_data(grouped_data, group_by)
         # Calculate derived metrics
-        returned_data = defaultdict(lambda: defaultdict(str))
+        returned_data = defaultdict(lambda: defaultdict(float))
         for i in range(len(grouped_data)):
             # Add vehicle average
             time_period, total_cost = grouped_data[i]['time_period'], grouped_data[i]['total_cost']
             returned_data[time_period]['vehicle_avg'] = round(total_cost / vehicle_count, 2)
 
-            # Add period-over-period change (except first period)
+            # Add period-over-period change (except the first period)
             change_pct = 0.0
-            if i > 0:
+            if i > 0 and not has_gap_between_periods(time_period, grouped_data[i - 1]['time_period']):
                 prev_cost = grouped_data[i - 1]["total_cost"]
-
                 if prev_cost != 0:
-                    change_pct = round((total_cost - prev_cost) / prev_cost * PERCENT, 2)
+                    change_pct = round((total_cost - prev_cost) / prev_cost * PERCENTAGE_MULTIPLIER, 2)
 
             returned_data[time_period][change_metric_key] = change_pct
-
         return returned_data
 
     def _get_health_metrics(self):
@@ -255,3 +252,29 @@ class FleetWideOverviewView(APIView):
             formatted_version[total_maintenance_cost][time_period]["vehicle_avg"] = round(value / vehicle_count, 2) if vehicle_count else 0.0
 
         return formatted_version
+
+    def _format_grouped_data(self, grouped_data, group_by):
+        """
+        Formats grouped data into a structured list with a time period and total cost.
+
+        This method processes the given grouped data by formatting its time periods
+        according to the specified grouping type (yearly, quarterly, or custom format) and
+        associates each formatted time period with its corresponding total cost.
+
+        Args:
+            grouped_data (list[dict]): A list of dictionaries containing grouped data. Each
+                dictionary should include keys 'time_period', 'year', and 'total_cost'.
+            group_by (str): A string indicating how the data is grouped. Acceptable values
+                are 'yearly', 'quarterly', or other formats.
+
+        Returns:
+            list[dict]: A list of dictionaries formatted with the time period string and
+                associated total cost.
+        """
+
+        def get_period(entry):
+            if group_by == "yearly": return f'{entry['time_period']}'
+            if group_by == "quarterly": return f'{entry['year']}-Q{entry['time_period']}'
+            return f'{entry['year']}-{entry['time_period']}'
+
+        return [{'time_period': get_period(entry), "total_cost": entry['total_cost']} for entry in grouped_data]

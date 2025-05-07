@@ -8,6 +8,10 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
+from maintenance.models import MaintenanceReport
+from maintenance.utils import has_gap_between_periods, period_key_comparator
+from vehicles.models import Vehicle
+
 PATH = 'maintenance/tests/fixtures/'
 
 
@@ -151,7 +155,8 @@ class FleetWideOverviewViewTestCases(APITestCase):
         # Manual calculations
         report_ids = set([report['pk'] for report in reports if is_current_year(report['fields']['start_date'])])
         parts = {part['pk']: part['fields']['name'] for part in parts}
-        part_names_counter = [(parts[part_id], count) for part_id, count in Counter([event['fields']['part'] for event in events if event['model'] == 'maintenance.partpurchaseevent' and event['fields']['maintenance_report'] in report_ids]).items()]
+        part_names_counter = [(parts[part_id], count) for part_id, count in Counter(
+            [event['fields']['part'] for event in events if event['model'] == 'maintenance.partpurchaseevent' and event['fields']['maintenance_report'] in report_ids]).items()]
         top_repeated_names = sorted(part_names_counter, key=lambda x: (-x[1], x[0]))[:3]
 
         # Assert API response values are correct
@@ -168,45 +173,86 @@ class FleetWideOverviewViewTestCases(APITestCase):
             self.assertIn("vehicle_avg", container)
             self.assertIn('mom_change', container)
 
-    def test_correct_metrics_on_group_by_year(self):
+    def test_correct_metrics_when_grouping_filter_is_given(self):
+        for grouping_type in ('monthly', 'quarterly', 'yearly'):
+            self._calculate_metrics_and_assert_response(group_by=grouping_type)
+
+    def test_correct_metrics_when_time_range_is_given(self):
+        self._calculate_metrics_and_assert_response(start_date="2024-10-01", end_date="2025-5-01")
+
+    def test_empty_metrics_when_range_is_out_of_reports_range(self):
+        self._calculate_metrics_and_assert_response(start_date="2026-12-01", end_date="2027-12-01")
+
+    def test_correct_metrics_when_grouping_and_time_range_filters_are_given(self):
+        self._calculate_metrics_and_assert_response(group_by="quarterly", start_date="2024-10-01", end_date="2025-5-01")
+
+    def test_fleet_overview_with_filters_when_no_vehicles_exist(self):
+        Vehicle.objects.all().delete()
+        response = self.client.get(reverse('fleet-wide-overview'), {"group_by": "monthly"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_fleet_overview_when_no_reports_exist(self):
+        MaintenanceReport.objects.all().delete()
+        Vehicle.objects.all().delete()
+        response = self.client.get(reverse('fleet-wide-overview'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_fleet_overview_with_filters_when_no_reports_exist(self):
+        MaintenanceReport.objects.all().delete()
+        response = self.client.get(reverse('fleet-wide-overview'), {'group_by': 'quarterly', 'start_date': '2024-10-01'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def _calculate_metrics_and_assert_response(self, **kwargs) -> None:
+        def get_period(date):
+            if group_by == "yearly": return f'{date.year}'
+            if group_by == "quarterly": return f'{date.year}-Q{(date.month - 1) // 3 + 1}'
+            return f'{date.year}-{date.month}'
+
         # Load fixtures
         fixtures = self._load_fixtures(reports='reports_fixture.json', vehicles='vehicles_fixture.json')
         vehicles, reports = fixtures.get('vehicles', []), fixtures.get('reports', [])
         self.assertTrue(vehicles, "vehicles fixture empty")
         self.assertTrue(reports, "reports fixture empty")
+        group_by = kwargs.get('group_by', 'monthly')
+        start_date = kwargs.get('start_date', None)
+        end_date = kwargs.get('end_date', None)
 
-        # Manual calculations
+        # Manual calculations based on the grouping method
         calculated_cost = defaultdict(int)
         for report in reports:
             fields = report['fields']
-            year = datetime.strptime(fields['start_date'], "%Y-%m-%d").year
-            calculated_cost[year] += fields['total_cost']
+            if start_date and end_date and not self._parse_date(start_date) <= self._parse_date(fields['start_date']) <= self._parse_date(end_date): continue
+            calculated_cost[get_period(datetime.strptime(fields['start_date'], "%Y-%m-%d"))] += fields['total_cost']
 
-        calculated_cost = sorted(calculated_cost.items(), key=lambda x: x[0])
-        metrics = [(calculated_cost[0][0], 0.0, round(calculated_cost[0][1]/ len(vehicles), 2))]
+        # Sort periods for consistent ordering
+        calculated_cost = sorted(calculated_cost.items(), key=period_key_comparator)
+
+        # Calculate metrics with yoy/qoq/mom changes
+        metrics = [(calculated_cost[0][0], 0.0, round(calculated_cost[0][1] / len(vehicles), 2))] if calculated_cost else []
 
         for i in range(1, len(calculated_cost)):
-            current_year, current_total_cost = calculated_cost[i]
-            previous_year, previous_total_cost = calculated_cost[i - 1]
-            yoy_change = round((current_total_cost - previous_total_cost) / previous_total_cost * 100, 2)  if previous_total_cost else 0.0
-            metrics.append((current_year, yoy_change, round(current_total_cost / len(vehicles), 2)))
+            current_period, current_total_cost = calculated_cost[i]
+            previous_period, previous_total_cost = calculated_cost[i - 1]
+            period_change = 0.0
+            if not has_gap_between_periods(current_period, previous_period) and previous_total_cost:
+                period_change = round((current_total_cost - previous_total_cost) / previous_total_cost * 100, 2)
+            metrics.append((current_period, period_change, round(current_total_cost / len(vehicles), 2)))
 
         # API call
-        response = self.client.get(reverse('fleet-wide-overview'), {'group_by': "yearly"})
+        response = self.client.get(reverse('fleet-wide-overview'), kwargs)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         grouped_metrics = response.data['grouped_metrics']
+        # Determine which change field to check based on grouping
+        change_field = {"yearly": "yoy_change", "quarterly": "qoq_change", "monthly": "mom_change"}[group_by]
 
         # Assert returned data is correct
         for period, change, avg in metrics:
-            self.assertTrue(period, grouped_metrics)
-            self.assertEqual(grouped_metrics[period]['yoy_change'], change)
-            self.assertEqual(grouped_metrics[period]['vehicle_avg'], avg)
+            self.assertIn(period, grouped_metrics)
+            self.assertEqual(grouped_metrics[period][change_field], change, f'{period}: periodic change')
+            self.assertEqual(grouped_metrics[period]['vehicle_avg'], avg, f'{period}: vehicle average')
 
-
-
-
-
-
+    def _parse_date(self, date_str):
+        return datetime.strptime(date_str, "%Y-%m-%d").date()
 
     def _load_fixtures(self, **kwargs):
         """loads JSON fixture files from specified paths and returns them as a dictionary.
@@ -234,4 +280,3 @@ class FleetWideOverviewViewTestCases(APITestCase):
             with open(f'{PATH}{path}', 'r') as file:
                 loaded_data[key] = json.load(file)
         return loaded_data
-
