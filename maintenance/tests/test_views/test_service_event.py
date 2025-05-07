@@ -18,8 +18,8 @@ class ServiceProviderEventDetailsTestCases(APITestCase):
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
         cls.vehicle = VehicleFactory.create(profile=cls.user_profile)
         cls.maintenance_report = MaintenanceReportFactory.create(profile=cls.user_profile, vehicle=cls.vehicle)
-        cls.service_provider_event = ServiceProviderEventFactory.create(maintenance_report=cls.maintenance_report)
         cls.service_provider = ServiceProviderFactory.create()
+        cls.service_provider_event = ServiceProviderEventFactory.create(maintenance_report=cls.maintenance_report, service_provider=cls.service_provider)
 
     def setUp(self):
         self.client.cookies['access'] = self.access_token
@@ -72,7 +72,7 @@ class ServiceProviderEventDetailsTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_successful_service_provider_event_deletion(self):
-        ServiceProviderEventFactory.create(maintenance_report=self.maintenance_report)
+        ServiceProviderEventFactory.create(maintenance_report=self.maintenance_report, service_provider=self.service_provider)
         response = self.client.delete(reverse('service-provider-event-details', args=[self.service_provider_event.id]))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         with self.assertRaises(ServiceProviderEvent.DoesNotExist):

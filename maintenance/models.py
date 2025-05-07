@@ -54,12 +54,7 @@ class MaintenanceReport(models.Model):
     end_date = models.DateField()
     description = models.TextField(blank=True)
     mileage = models.PositiveIntegerField(blank=True, null=True)
-
-    @property
-    def total_cost(self):
-        parts_cost = self.part_purchase_events.aggregate(total=Sum('cost'))['total'] or 0
-        services_cost = self.service_provider_events.aggregate(total=Sum('cost'))['total'] or 0
-        return parts_cost + services_cost
+    total_cost = models.IntegerField(validators=[validate_positive_integer])
 
     def clean(self):
         if self.end_date < self.start_date:
@@ -67,8 +62,8 @@ class MaintenanceReport(models.Model):
 
 
 class PartPurchaseEvent(models.Model):
-    part = models.ForeignKey(Part, on_delete=models.CASCADE)
-    provider = models.ForeignKey(PartsProvider, on_delete=models.CASCADE)
+    part = models.ForeignKey(Part, on_delete=models.CASCADE, related_name='part_purchase_events')
+    provider = models.ForeignKey(PartsProvider, on_delete=models.CASCADE, related_name='part_purchase_events')
     maintenance_report = models.ForeignKey(MaintenanceReport, on_delete=models.CASCADE, related_name='part_purchase_events')
     purchase_date = models.DateField()
     cost = models.IntegerField(validators=[validate_positive_integer])
@@ -77,7 +72,7 @@ class PartPurchaseEvent(models.Model):
 
 class ServiceProviderEvent(models.Model):
     maintenance_report = models.ForeignKey(MaintenanceReport, on_delete=models.CASCADE, related_name='service_provider_events')
-    service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE)
+    service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE, related_name='service_provider_events')
     service_date = models.DateField()
     cost = models.IntegerField(validators=[validate_positive_integer])
     receipt = models.ImageField(upload_to='services/%Y/%m/%d/', null=True)

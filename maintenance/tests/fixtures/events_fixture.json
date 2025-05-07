@@ -1,0 +1,290 @@
+[
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 1,
+    "fields": {
+      "part": 7,
+      "provider": 1,
+      "maintenance_report": 1,
+      "purchase_date": "2019-02-28",
+      "cost": 3129,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 2,
+    "fields": {
+      "part": 7,
+      "provider": 1,
+      "maintenance_report": 1,
+      "purchase_date": "1992-02-13",
+      "cost": 270,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 3,
+    "fields": {
+      "part": 6,
+      "provider": 2,
+      "maintenance_report": 2,
+      "purchase_date": "1981-06-06",
+      "cost": 9367,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 4,
+    "fields": {
+      "part": 6,
+      "provider": 2,
+      "maintenance_report": 2,
+      "purchase_date": "2017-11-23",
+      "cost": 6208,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 5,
+    "fields": {
+      "part": 2,
+      "provider": 1,
+      "maintenance_report": 3,
+      "purchase_date": "1982-12-13",
+      "cost": 5909,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 6,
+    "fields": {
+      "part": 2,
+      "provider": 1,
+      "maintenance_report": 3,
+      "purchase_date": "1975-07-01",
+      "cost": 1689,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 7,
+    "fields": {
+      "part": 6,
+      "provider": 2,
+      "maintenance_report": 4,
+      "purchase_date": "2008-08-26",
+      "cost": 340,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 8,
+    "fields": {
+      "part": 6,
+      "provider": 2,
+      "maintenance_report": 4,
+      "purchase_date": "1977-02-09",
+      "cost": 5697,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 9,
+    "fields": {
+      "part": 9,
+      "provider": 2,
+      "maintenance_report": 5,
+      "purchase_date": "1995-02-14",
+      "cost": 8054,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 10,
+    "fields": {
+      "part": 9,
+      "provider": 2,
+      "maintenance_report": 5,
+      "purchase_date": "2006-11-23",
+      "cost": 2192,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 11,
+    "fields": {
+      "part": 4,
+      "provider": 2,
+      "maintenance_report": 6,
+      "purchase_date": "1970-10-30",
+      "cost": 3180,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 12,
+    "fields": {
+      "part": 4,
+      "provider": 2,
+      "maintenance_report": 6,
+      "purchase_date": "2017-12-29",
+      "cost": 6878,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 13,
+    "fields": {
+      "part": 4,
+      "provider": 2,
+      "maintenance_report": 7,
+      "purchase_date": "1970-10-30",
+      "cost": 3180,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 14,
+    "fields": {
+      "part": 4,
+      "provider": 2,
+      "maintenance_report": 7,
+      "purchase_date": "2017-12-29",
+      "cost": 6878,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 13,
+    "fields": {
+      "part": 4,
+      "provider": 2,
+      "maintenance_report": 8,
+      "purchase_date": "1970-10-30",
+      "cost": 3180,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 14,
+    "fields": {
+      "part": 4,
+      "provider": 2,
+      "maintenance_report": 8,
+      "purchase_date": "2017-12-29",
+      "cost": 6878,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.serviceproviderevent",
+    "pk": 1,
+    "fields": {
+      "maintenance_report": 1,
+      "service_provider": 2,
+      "service_date": "1987-08-18",
+      "cost": 4636,
+      "receipt": "",
+      "description": "Fear thing report crime behind. Model he I require production. Campaign goal create law environmental."
+    }
+  },
+  {
+    "model": "maintenance.serviceproviderevent",
+    "pk": 2,
+    "fields": {
+      "maintenance_report": 2,
+      "service_provider": 1,
+      "service_date": "2008-08-20",
+      "cost": 3680,
+      "receipt": "",
+      "description": "Possible amount purpose others. Bag option right black. Action long force type.\nSo fight customer suffer kind. Push assume boy professor."
+    }
+  },
+  {
+    "model": "maintenance.serviceproviderevent",
+    "pk": 3,
+    "fields": {
+      "maintenance_report": 3,
+      "service_provider": 2,
+      "service_date": "2020-08-09",
+      "cost": 3854,
+      "receipt": "",
+      "description": "Near research avoid history. Western area wait. Involve soon should establish teacher.\nFear theory behavior player. Hotel training gun produce street. Leg agency admit rich like school physical."
+    }
+  },
+  {
+    "model": "maintenance.serviceproviderevent",
+    "pk": 4,
+    "fields": {
+      "maintenance_report": 4,
+      "service_provider": 1,
+      "service_date": "1986-08-01",
+      "cost": 3653,
+      "receipt": "",
+      "description": "Time win later remember daughter protect.\nNation enough support cup poor agree. Significant over raise practice detail experience let.\nStrategy speech political forward. Find film so later."
+    }
+  },
+  {
+    "model": "maintenance.serviceproviderevent",
+    "pk": 5,
+    "fields": {
+      "maintenance_report": 5,
+      "service_provider": 1,
+      "service_date": "2014-07-23",
+      "cost": 2746,
+      "receipt": "",
+      "description": "Generation direction in technology away suffer. Upon another follow house ask."
+    }
+  },
+  {
+    "model": "maintenance.serviceproviderevent",
+    "pk": 6,
+    "fields": {
+      "maintenance_report": 6,
+      "service_provider": 1,
+      "service_date": "1971-08-18",
+      "cost": 6626,
+      "receipt": "",
+      "description": "Foot look tax film road than sense begin. Capital fund lose six research treatment. National involve space apply determine."
+    }
+  },
+  {
+    "model": "maintenance.serviceproviderevent",
+    "pk": 7,
+    "fields": {
+      "maintenance_report": 7,
+      "service_provider": 1,
+      "service_date": "1971-08-18",
+      "cost": 2634,
+      "receipt": "",
+      "description": "Foot look tax film road than sense begin. Capital fund lose six research treatment. National involve space apply determine."
+    }
+  },
+  {
+    "model": "maintenance.serviceproviderevent",
+    "pk": 8,
+    "fields": {
+      "maintenance_report": 8,
+      "service_provider": 1,
+      "service_date": "1971-08-18",
+      "cost": 2634,
+      "receipt": "",
+      "description": "Foot look tax film road than sense begin. Capital fund lose six research treatment. National involve space apply determine."
+    }
+  }
+]

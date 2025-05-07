@@ -1,0 +1,44 @@
+[
+  {
+    "model": "maintenance.serviceprovider",
+    "pk": 1,
+    "fields": {
+      "profile": 1,
+      "name": "provider_one",
+      "service_type": "MECHANIC",
+      "phone_number": "9298668668",
+      "address": "some address"
+    }
+  },
+  {
+    "model": "maintenance.serviceprovider",
+    "pk": 2,
+    "fields": {
+      "profile": 1,
+      "name": "provider_two",
+      "service_type": "MECHANIC",
+      "phone_number": "9298778668",
+      "address": "some other address"
+    }
+  },
+  {
+    "model": "maintenance.partsprovider",
+    "pk": 1,
+    "fields": {
+      "profile": 1,
+      "name": "provider_one",
+      "phone_number": "9290778668",
+      "address": "some other address"
+    }
+  },
+  {
+    "model": "maintenance.partsprovider",
+    "pk": 2,
+    "fields": {
+      "profile": 1,
+      "name": "provider_two",
+      "phone_number": "9298778661",
+      "address": "new address"
+    }
+  }
+]

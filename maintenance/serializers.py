@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from django.db import transaction
 from rest_framework import serializers
 
@@ -10,10 +12,10 @@ class PartSerializer(serializers.ModelSerializer):
         model = Part
         fields = "__all__"
 
-
     def create(self, validated_data):
         profile = self.context['request'].user.userprofile
         return Part.objects.create(profile=profile, **validated_data)
+
 
 class ServiceProviderSerializer(serializers.ModelSerializer):
     class Meta:
@@ -59,7 +61,6 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
     part_purchase_events = PartPurchaseEventSerializer(many=True, required=False)
     service_provider_events = ServiceProviderEventSerializer(many=True, required=False)
     vehicle_details = VehicleSerializer(source='vehicle', read_only=True)
-    total_cost = serializers.SerializerMethodField()
 
     class Meta:
         model = MaintenanceReport
@@ -77,10 +78,7 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
             "part_purchase_events",
             "service_provider_events",
         ]
-        read_only_fields = ['profile']
-
-    def get_total_cost(self, obj):
-        return obj.total_cost
+        read_only_fields = ['profile', 'total_cost']
 
     def create(self, validated_data):
         profile = self.context['request'].user.userprofile
@@ -89,8 +87,13 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
         if not service_provider_events_data:
             raise serializers.ValidationError("At least one service provider event is required")
 
+        total_cost = sum(event.get('cost', 0) for event in service_provider_events_data)
+        total_cost += sum(event.get('cost', 0) for event in service_provider_events_data)
+
         with transaction.atomic():
-            maintenance_report = MaintenanceReport.objects.create(profile=profile, **validated_data)
+            maintenance_report = MaintenanceReport.objects.create(profile=profile, total_cost=total_cost, **validated_data)
+
+            # Create related objects
             PartPurchaseEvent.objects.bulk_create(
                 [PartPurchaseEvent(maintenance_report=maintenance_report, **part_data) for part_data in part_purchase_events_data]
             )
@@ -102,38 +105,38 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         part_purchase_events_data = validated_data.pop('part_purchase_events', [])
         service_provider_events_data = validated_data.pop('service_provider_events', [])
-        if not service_provider_events_data and not ServiceProviderEvent.objects.filter(maintenance_report=instance).exists():
+        validated_data.pop('vehicle_details', None)
+        if not service_provider_events_data:
             raise serializers.ValidationError("At least one service provider event is required")
 
-        validated_data.pop('vehicle_details', None)
+        # Calculate total cost and count parts upfront
+        total_cost = sum(event.get('cost', 0) for event in part_purchase_events_data)
+        total_cost += sum(event.get('cost', 0) for event in service_provider_events_data)
+
         with transaction.atomic():
             for attr, value in validated_data.items():
                 setattr(instance, attr, value)
+            setattr(instance, 'total_cost', total_cost)
             instance.save()
 
-            # Handle part purchase events
-            if part_purchase_events_data:
-                provided_part_purchase_event_ids = {event.get('id') for event in part_purchase_events_data}
-                if provided_part_purchase_event_ids:
-                    PartPurchaseEvent.objects.filter(maintenance_report=instance).exclude(pk__in=provided_part_purchase_event_ids).delete()
-
-            # Process each event in the request
-            for part_purchase_event in part_purchase_events_data:
-                part_purchase_event.pop('part_details', None)
-                part_purchase_event.pop('provider_details', None)
-                part_purchase_event.pop('maintenance_report', None)
-                if not 'id' in part_purchase_event:
-                    PartPurchaseEvent.objects.create(maintenance_report=instance, **part_purchase_event)
-
-            # Handle service events
-            service_event_ids = {event.get('id') for event in service_provider_events_data}
-            if service_event_ids:
-                ServiceProviderEvent.objects.filter(maintenance_report=instance).exclude(pk__in=service_event_ids).delete()
-
-            for service_event in service_provider_events_data:
-                service_event.pop('service_provider_details', None)
-                service_event.pop('maintenance_report', None)
-                if not 'id' in service_event:
-                    ServiceProviderEvent.objects.create(maintenance_report=instance, **service_event)
+            # Update related objects
+            self._update_maintenance_report_events(["part_details", "provider_details"], PartPurchaseEvent, part_purchase_events_data, instance)
+            self._update_maintenance_report_events(["service_provider_details"], ServiceProviderEvent, service_provider_events_data, instance)
 
         return instance
+
+    def _update_maintenance_report_events(self, keys, model, events_data, maintenance_report_instance):
+        events_to_keep, events_to_create = set(), list()
+        keys.append('maintenance_report')
+        for event in events_data:
+            if "id" in event:
+                events_to_keep.add(event)
+            else:
+                for key in keys:
+                    event.pop(key, None)
+                events_to_create.append(event)
+
+        # Remove dangling events
+        model.objects.filter(maintenance_report=maintenance_report_instance).exclude(pk__in=events_to_keep).delete()
+        # Create new events
+        model.objects.bulk_create([model(maintenance_report=maintenance_report_instance, **event_data) for event_data in events_to_create])

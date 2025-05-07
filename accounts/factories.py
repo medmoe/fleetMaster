@@ -1,3 +1,4 @@
+import factory
 from django.contrib.auth.models import User
 from factory import Faker, SubFactory
 from factory.django import DjangoModelFactory
@@ -12,7 +13,7 @@ class UserFactory(DjangoModelFactory):
     first_name = Faker('first_name')
     last_name = Faker('last_name')
     email = Faker('email')
-    username = Faker('name')
+    username = factory.sequence(lambda n: f'user{n}')
 
     @classmethod
     def _create(cls, model_class, *args, **kwargs):

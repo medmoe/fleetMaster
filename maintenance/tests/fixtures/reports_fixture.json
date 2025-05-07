@@ -1,0 +1,128 @@
+[
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 1,
+    "fields": {
+      "profile": 1,
+      "vehicle": 1,
+      "maintenance_type": "PREVENTIVE",
+      "start_date": "2025-01-19",
+      "end_date": "2025-02-01",
+      "description": "Head continue decade why thank decision. Color authority far situation.",
+      "mileage": 7132,
+      "total_cost": 8035
+    }
+  },
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 2,
+    "fields": {
+      "profile": 1,
+      "vehicle": 2,
+      "maintenance_type": "CURATIVE",
+      "start_date": "2025-08-09",
+      "end_date": "2025-09-07",
+      "description": "Sort trade individual clearly state threat.\nRecord thus a enough. Budget central manager between maintain. Per place sure whatever several.\nKey stage this rest. He foreign must large.",
+      "mileage": 3168,
+      "total_cost": 19255
+    }
+  },
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 3,
+    "fields": {
+      "profile": 1,
+      "vehicle": 3,
+      "maintenance_type": "PREVENTIVE",
+      "start_date": "2025-02-07",
+      "end_date": "2025-03-06",
+      "description": "Development computer how religious to break baby. Smile capital message newspaper teach.\nPurpose maybe success easy idea site. Time there product will end reach.",
+      "mileage": 977,
+      "total_cost": 11452
+    }
+  },
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 4,
+    "fields": {
+      "profile": 1,
+      "vehicle": 4,
+      "maintenance_type": "CURATIVE",
+      "start_date": "2025-05-24",
+      "end_date": "2025-06-08",
+      "description": "Race policy town least week. Hand receive box health serve follow under.\nForeign green always. Cut nothing kind bit. Size laugh professor anything hotel.",
+      "mileage": 9284,
+      "total_cost": 9690
+    }
+  },
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 5,
+    "fields": {
+      "profile": 1,
+      "vehicle": 5,
+      "maintenance_type": "PREVENTIVE",
+      "start_date": "2025-11-28",
+      "end_date": "2025-12-15",
+      "description": "Watch oil offer compare resource. These prevent fine see. Cup behavior exactly.\nReligious past thank better large now. Feeling program value certain case character three. West traditional fight head.",
+      "mileage": 2568,
+      "total_cost": 12992
+    }
+  },
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 6,
+    "fields": {
+      "profile": 1,
+      "vehicle": 6,
+      "maintenance_type": "CURATIVE",
+      "start_date": "2025-10-27",
+      "end_date": "2025-11-20",
+      "description": "Score station reflect movement. When probably seek common century those. Trouble firm officer almost.\nFoot its politics poor. Head people others himself. Cup check yet environment.",
+      "mileage": 247,
+      "total_cost": 16684
+    }
+  },
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 7,
+    "fields": {
+      "profile": 1,
+      "vehicle": 5,
+      "maintenance_type": "PREVENTIVE",
+      "start_date": "2024-11-28",
+      "end_date": "2024-12-15",
+      "description": "Watch oil offer compare resource. These prevent fine see. Cup behavior exactly.\nReligious past thank better large now. Feeling program value certain case character three. West traditional fight head.",
+      "mileage": 2168,
+      "total_cost": 12692
+    }
+  },
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 8,
+    "fields": {
+      "profile": 1,
+      "vehicle": 6,
+      "maintenance_type": "CURATIVE",
+      "start_date": "2024-10-27",
+      "end_date": "2024-11-20",
+      "description": "Score station reflect movement. When probably seek common century those. Trouble firm officer almost.\nFoot its politics poor. Head people others himself. Cup check yet environment.",
+      "mileage": 247,
+      "total_cost": 16184
+    }
+  },
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 9,
+    "fields": {
+      "profile": 1,
+      "vehicle": 1,
+      "maintenance_type": "PREVENTIVE",
+      "start_date": "2024-01-19",
+      "end_date": "2024-02-01",
+      "description": "Head continue decade why thank decision. Color authority far situation.",
+      "mileage": 7132,
+      "total_cost": 8035
+    }
+  }
+]

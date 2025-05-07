@@ -1,5 +1,5 @@
 import datetime
-
+from django.db.models import Sum
 import factory
 from faker import Faker
 
@@ -13,7 +13,6 @@ class PartFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Part
 
-    profile = factory.SubFactory("accounts.factories.UserProfileFactory")
     name = factory.Faker('name')
     description = factory.Faker('text')
 
@@ -22,7 +21,6 @@ class ServiceProviderFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = ServiceProvider
 
-    profile = factory.SubFactory("accounts.factories.UserProfileFactory")
     name = factory.Faker("name")
     service_type = factory.Iterator([choice[0] for choice in ServiceChoices])
     phone_number = factory.Faker('phone_number')
@@ -33,7 +31,6 @@ class PartsProviderFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = PartsProvider
 
-    profile = factory.SubFactory("accounts.factories.UserProfileFactory")
     name = factory.Faker("name")
     phone_number = factory.Faker('phone_number')
     address = factory.Faker("address")
@@ -44,46 +41,44 @@ class MaintenanceReportFactory(factory.django.DjangoModelFactory):
         model = MaintenanceReport
         skip_postgeneration_save = True
 
-    profile = factory.SubFactory("accounts.factories.UserProfileFactory")
-    vehicle = factory.SubFactory("vehicles.factories.VehicleFactory")
     maintenance_type = factory.Iterator([choice[0] for choice in MaintenanceChoices.choices])
     start_date = factory.LazyFunction(faker.date_object)
     end_date = factory.LazyAttribute(lambda obj: faker.date_between(start_date=obj.start_date, end_date=obj.start_date + datetime.timedelta(days=30)))
     description = factory.Faker('text')
     mileage = factory.Faker('random_int')
-
-    @factory.post_generation
-    def service_provider_events(self, create, extracted, **kwargs):
-        if create and extracted:
-            for service_event in extracted:
-                ServiceProviderEventFactory(maintenance_report=self, **service_event)
-        self.save()
-
-    @factory.post_generation
-    def part_purchase_events(self, create, extracted, **kwargs):
-        if create and extracted:
-            for part_purchase_event in extracted:
-                PartPurchaseEventFactory(maintenance_report=self, **part_purchase_event)
-        self.save()
-
+    total_cost = 0 # We will populate this when we create events.
 
 class PartPurchaseEventFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = PartPurchaseEvent
+        skip_postgeneration_save = True
 
-    part = factory.SubFactory(PartFactory)
-    provider = factory.SubFactory(PartsProviderFactory)
-    maintenance_report = factory.SubFactory(MaintenanceReportFactory)
+    maintenance_report = None
     purchase_date = factory.Faker('date')
     cost = factory.Faker('random_int')
 
+    @factory.post_generation
+    def total_cost(self, create, extracted, **kwargs):
+        if not create:
+            return
+        if self.maintenance_report:
+            self.maintenance_report.total_cost += self.cost
+            self.maintenance_report.save()
 
 class ServiceProviderEventFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = ServiceProviderEvent
+        skip_postgeneration_save = True
 
-    maintenance_report = factory.SubFactory(MaintenanceReportFactory)
-    service_provider = factory.SubFactory(ServiceProviderFactory)
+    maintenance_report = None
     service_date = factory.Faker('date')
     cost = factory.Faker('random_int')
     description = factory.Faker('text')
+
+    @factory.post_generation
+    def total_cost(self, create, extracted, **kwargs):
+        if not create:
+            return
+        if self.maintenance_report:
+            self.maintenance_report.total_cost += self.cost
+            self.maintenance_report.save()

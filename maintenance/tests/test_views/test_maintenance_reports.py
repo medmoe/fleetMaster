@@ -2,50 +2,50 @@ import copy
 import random
 from datetime import date
 
+from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
-from accounts.factories import UserProfileFactory
+from maintenance.factories import PartPurchaseEventFactory
 from maintenance.factories import ServiceProviderEventFactory
-from maintenance.factories import ServiceProviderFactory, PartFactory, PartsProviderFactory, MaintenanceReportFactory, PartPurchaseEventFactory
-from maintenance.models import MaintenanceReport, PartPurchaseEvent, ServiceProviderEvent
-from vehicles.factories import VehicleFactory
+from maintenance.models import MaintenanceReport, PartPurchaseEvent, ServiceProviderEvent, Part, PartsProvider, ServiceProvider
+from vehicles.models import Vehicle
+
+PATH = 'maintenance/tests/fixtures/'
+MILEAGE = 20000
 
 
 class MaintenanceReportListViewTestCases(APITestCase):
-    @classmethod
-    def setUpTestData(cls):
-        MILEAGE = 20000
-
-        cls.user_profile = UserProfileFactory.create()
-        cls.access_token = AccessToken.for_user(cls.user_profile.user)
-        cls.vehicle = VehicleFactory.create(profile=cls.user_profile, mileage=MILEAGE)
-        cls.service_provider = ServiceProviderFactory.create()
-        cls.parts = PartFactory.create_batch(size=20)
-        cls.parts_provider = PartsProviderFactory.create()
-        cls.maintenance_reports = MaintenanceReportFactory.create_batch(size=5, profile=cls.user_profile, vehicle=cls.vehicle)
+    fixtures = [f'{PATH}user_and_userprofile_fixture', f'{PATH}parts_fixture', f'{PATH}providers_fixture', f'{PATH}vehicles_fixture', f'{PATH}reports_fixture',
+                f'{PATH}events_fixture']
 
     def setUp(self):
-        self.client.cookies['access'] = self.access_token
+        access_token = AccessToken.for_user(User.objects.get(pk=1))  # This is the PK of the user created from the loaded fixtures
+        self.client.cookies['access'] = access_token
+        self.reports_count = MaintenanceReport.objects.filter(profile__user__pk=1).count()
+        self.vehicle = Vehicle.objects.filter(profile__user__pk=1, pk=1).first()
+
+        # The IDs are used based on what we have in the fixtures.
         self.maintenance_report_data = {
-            "profile": self.user_profile.id,
+            "profile": 1,
             "vehicle": self.vehicle.id,
-            "start_date": date(2020, 12, 27).isoformat(),
-            "end_date": date(2020, 12, 31).isoformat(),
+            "start_date": date(2030, 12, 27).isoformat(),
+            "end_date": date(2030, 12, 31).isoformat(),
             "description": "description",
             "mileage": 55555,
             "part_purchase_events": [
                 {
-                    "part": self.parts[0].id,
-                    "provider": self.parts_provider.id,
+                    "part": 1,
+                    "provider": 1,
                     "purchase_date": date(2020, 12, 31).isoformat(),
-                    "cost": 2000}
+                    "cost": 2000,
+                }
             ],
             "service_provider_events": [
                 {
-                    "service_provider": self.service_provider.id,
+                    "service_provider": 1,
                     "service_date": date(2020, 12, 31).isoformat(),
                     "cost": 2000,
                     "description": "description", }
@@ -55,18 +55,27 @@ class MaintenanceReportListViewTestCases(APITestCase):
     def test_successful_retrieval_of_maintenance_reports(self):
         response = self.client.get(reverse("reports"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['count'], len(self.maintenance_reports))
+        self.assertEqual(response.data['count'], self.reports_count)
 
     def test_successful_creation_of_new_report(self):
         response = self.client.post(reverse("reports"), data=self.maintenance_report_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(len(self.maintenance_reports) + 1, MaintenanceReport.objects.count())
+        self.assertEqual(self.reports_count + 1, MaintenanceReport.objects.filter(profile__user__pk=1).count())
         self.assertIn("vehicle_details", response.data)
         self.assertIn("total_cost", response.data)
+        total_cost = sum(event['cost'] for event in self.maintenance_report_data['part_purchase_events'])
+        total_cost += sum(event['cost'] for event in self.maintenance_report_data['service_provider_events'])
+        self.assertEqual(response.data["total_cost"], total_cost)
+
+    def test_failed_creation_of_new_report_without_service_provider_event(self):
+        self.maintenance_report_data.pop("service_provider_events")
+        response = self.client.post(reverse('reports'), data=self.maintenance_report_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_sync_latest_maintenance_report_to_vehicle(self):
-        latest_report = MaintenanceReport.objects.order_by("-start_date").first()
-        self.assertEqual(latest_report.mileage, self.vehicle.mileage)
+        self.client.post(reverse("reports"), data=self.maintenance_report_data, format="json")
+        latest_report = MaintenanceReport.objects.filter(profile__user__pk=1).order_by("-start_date").first()
+        self.assertEqual(latest_report.mileage, Vehicle.objects.filter(pk=self.vehicle.id).first().mileage)
 
     def test_unauthorised_access(self):
         self.client.cookies['access'] = None
@@ -77,20 +86,17 @@ class MaintenanceReportListViewTestCases(APITestCase):
 
 
 class MaintenanceReportDetailsTestCases(APITestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.user_profile = UserProfileFactory.create()
-        cls.access_token = AccessToken.for_user(cls.user_profile.user)
-        cls.vehicle = VehicleFactory.create(profile=cls.user_profile)
-        cls.service_provider = ServiceProviderFactory.create()
-        cls.maintenance_report = MaintenanceReportFactory.create(profile=cls.user_profile)
-        cls.part_purchase_events = PartPurchaseEventFactory.create_batch(size=2, maintenance_report=cls.maintenance_report)
-        cls.service_provider_events = ServiceProviderEventFactory.create_batch(size=1, maintenance_report=cls.maintenance_report)
-        cls.part = PartFactory.create()
-        cls.parts_provider = PartsProviderFactory.create()
+    fixtures = [f'{PATH}user_and_userprofile_fixture', f'{PATH}parts_fixture', f'{PATH}providers_fixture', f'{PATH}vehicles_fixture', f'{PATH}reports_fixture',
+                f'{PATH}events_fixture']
 
     def setUp(self):
-        self.client.cookies['access'] = self.access_token
+        access_token = AccessToken.for_user(User.objects.get(pk=1))  # This is the PK of the user created from the loaded fixtures
+        self.vehicle = Vehicle.objects.filter(profile__user__pk=1, pk=1).first()
+        self.part = Part.objects.all().first()
+        self.parts_provider = PartsProvider.objects.filter(profile__user__pk=1, pk=1).first()
+        self.service_provider = ServiceProvider.objects.filter(profile__user__pk=1, pk=1).first()
+        self.maintenance_report = MaintenanceReport.objects.filter(profile__user__pk=1, pk=1).first()
+        self.client.cookies['access'] = access_token
         self.data = {
             "start_date": date(2020, 12, 27).isoformat(),
             "end_date": date(2020, 12, 31).isoformat(),
@@ -103,7 +109,8 @@ class MaintenanceReportDetailsTestCases(APITestCase):
                     "part": self.part.id,
                     "provider": self.parts_provider.id,
                     "purchase_date": date(2020, 12, 31).isoformat(),
-                    "cost": 2000}
+                    "cost": 2000,
+                }
             ],
             "service_provider_events": [
                 {
@@ -122,10 +129,18 @@ class MaintenanceReportDetailsTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["id"], self.maintenance_report.id)
 
+    def test_unauthorised_access(self):
+        self.client.cookies['access'] = None
+        response = self.client.get(reverse('reports-details', args=[self.maintenance_report.id]))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
     def test_successful_maintenance_report_update(self):
         response = self.client.put(reverse('reports-details', args=[self.maintenance_report.id]), data=self.data,
                                    format='json')
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        total_cost = sum(event['cost'] for event in self.data['part_purchase_events'])
+        total_cost += sum(event['cost'] for event in self.data['service_provider_events'])
+        self.assertEqual(response.data['total_cost'], total_cost)
 
     def test_update_with_existing_and_new_part_purchase_events(self):
         """Test updating a maintenance report with both existing and new part purchase events."""
@@ -135,7 +150,6 @@ class MaintenanceReportDetailsTestCases(APITestCase):
             part=self.part,
             provider=self.parts_provider
         )
-
         # Add both the existing event (with id) and a new event to the update data
         data = copy.deepcopy(self.data)
         data["part_purchase_events"] = [
@@ -144,26 +158,25 @@ class MaintenanceReportDetailsTestCases(APITestCase):
                 "part": self.part.id,
                 "provider": self.parts_provider.id,
                 "purchase_date": date(2020, 12, 30).isoformat(),
-                "cost": 3000
+                "cost": 3000,
             },
             {
                 # New event without id
                 "part": self.part.id,
                 "provider": self.parts_provider.id,
                 "purchase_date": date(2020, 12, 31).isoformat(),
-                "cost": 2000
+                "cost": 2000,
             }
         ]
-
-        response = self.client.put(
-            reverse('reports-details', args=[self.maintenance_report.id]),
-            data=data,
-            format='json'
-        )
-
+        response = self.client.put(reverse('reports-details', args=[self.maintenance_report.id]), data=data, format='json')
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+
         # Verify that the new part purchase event was created
         self.assertEqual(self.maintenance_report.part_purchase_events.count(), 2)
+        total_cost = sum(event['cost'] for event in data['part_purchase_events'])
+        total_cost += sum(event['cost'] for event in data['service_provider_events'])
+        self.assertEqual(PartPurchaseEvent.objects.filter(maintenance_report=self.maintenance_report).count(), 2)
+        self.assertEqual(response.data['total_cost'], total_cost)
 
     def test_update_with_existing_and_new_service_provider_events(self):
         """Test updating a maintenance report with both existing and new service provider events."""
@@ -201,6 +214,9 @@ class MaintenanceReportDetailsTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         # Verify that the new service provider event was created
         self.assertEqual(self.maintenance_report.service_provider_events.count(), 2)
+        total_cost = sum(event['cost'] for event in data['service_provider_events'])
+        total_cost += sum(event['cost'] for event in data['part_purchase_events'])
+        self.assertEqual(response.data['total_cost'], total_cost)
 
     def test_update_with_part_details_and_provider_details(self):
         """Test that part_details and provider_details are properly handled in update."""
@@ -223,6 +239,7 @@ class MaintenanceReportDetailsTestCases(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+
         # Verify that a part purchase event was created
         self.assertEqual(self.maintenance_report.part_purchase_events.count(), 1)
 
@@ -260,72 +277,7 @@ class MaintenanceReportDetailsTestCases(APITestCase):
             data=data,
             format='json'
         )
-        if ServiceProviderEvent.objects.filter(maintenance_report=self.maintenance_report).exists():
-            self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
-        else:
-            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_update_with_multiple_part_purchase_events(self):
-        """Test updating with multiple part purchase events."""
-        # Create another part for testing
-        second_part = PartFactory.create()
-
-        data = copy.deepcopy(self.data)
-        data["part_purchase_events"] = [
-            {
-                "part": self.part.id,
-                "provider": self.parts_provider.id,
-                "purchase_date": date(2020, 12, 30).isoformat(),
-                "cost": 2000
-            },
-            {
-                "part": second_part.id,
-                "provider": self.parts_provider.id,
-                "purchase_date": date(2020, 12, 31).isoformat(),
-                "cost": 3000
-            }
-        ]
-
-        response = self.client.put(
-            reverse('reports-details', args=[self.maintenance_report.id]),
-            data=data,
-            format='json'
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
-        # Verify that both part purchase events were created
-        self.assertEqual(self.maintenance_report.part_purchase_events.count(), 2)
-
-    def test_update_with_multiple_service_provider_events(self):
-        """Test updating with multiple service provider events."""
-        # Create another service provider for testing
-        second_service_provider = ServiceProviderFactory.create()
-
-        data = copy.deepcopy(self.data)
-        data["service_provider_events"] = [
-            {
-                "service_provider": self.service_provider.id,
-                "service_date": date(2020, 12, 30).isoformat(),
-                "cost": 2000,
-                "description": "First service"
-            },
-            {
-                "service_provider": second_service_provider.id,
-                "service_date": date(2020, 12, 31).isoformat(),
-                "cost": 3000,
-                "description": "Second service"
-            }
-        ]
-
-        response = self.client.put(
-            reverse('reports-details', args=[self.maintenance_report.id]),
-            data=data,
-            format='json'
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
-        # Verify that both service provider events were created
-        self.assertEqual(self.maintenance_report.service_provider_events.count(), 2)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_update_with_vehicle_details(self):
         """Test updating with vehicle_details in the data."""
@@ -369,5 +321,3 @@ class MaintenanceReportDetailsTestCases(APITestCase):
             ServiceProviderEvent.objects.filter(maintenance_report_id=report_id).exists(),
             "Service provider events were not deleted with the maintenance report"
         )
-
-

@@ -1,10 +1,11 @@
-from unittest.mock import patch
+from random import choice
 
-from allauth.socialaccount.models import SocialApp, SocialAccount
+from allauth.socialaccount.models import SocialAccount
 from allauth.socialaccount.signals import social_account_added
 from django.contrib.auth.models import User
-from django.urls import reverse
 from django.test import TestCase, RequestFactory
+from django.urls import reverse
+from factory import LazyAttribute
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
@@ -84,7 +85,7 @@ class LoginTestCases(APITestCase):
     def setUpTestData(cls):
         cls.user_profile = UserProfileFactory.create()
         cls.vehicles = VehicleFactory.create_batch(size=2, profile=cls.user_profile)
-        cls.drivers = DriverFactory.create_batch(size=5, profile=cls.user_profile)
+        cls.drivers = DriverFactory.create_batch(size=5, profile=cls.user_profile, vehicle=LazyAttribute(lambda _ : choice(cls.vehicles)))
 
     def test_successful_login(self):
         response = self.client.post(reverse("login"), {"username": self.user_profile.user.username, "password": "password"}, format="json")
@@ -215,10 +216,12 @@ class UserProfileSignalTests(TestCase):
 
     def test_signal_with_existing_profile(self):
         """Test that no duplicate profile is created if one exists."""
+
         class MockSocialLogin:
             def __init__(self, user):
                 self.user = user
                 self.account = None  # Minimal mock
+
         UserProfile.objects.create(user=self.user)
 
         request = self.factory.get('/')
