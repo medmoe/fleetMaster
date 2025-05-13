@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import timedelta, datetime, date
-from typing import DefaultDict, Any, Union
+from typing import DefaultDict, Any, Union, Optional
 
 from django.db.models import F, Q, Sum, ExpressionWrapper, DurationField, Avg, Case, When, FloatField, Count
 from django.db.models.functions import ExtractYear, ExtractMonth, ExtractQuarter, Round
@@ -98,10 +98,10 @@ class FleetWideOverviewView(APIView):
             core_metrics = self._get_core_metrics(vehicle_type)
             return Response(data=core_metrics | {"vehicle_health_metrics": vehicle_health_metrics}, status=status.HTTP_200_OK)
 
-        grouped_metrics = {"grouped_metrics": self._get_grouped_maintenance_metrics(start_date, end_date, group_by, vehicles_count)}
+        grouped_metrics = {"grouped_metrics": self._get_grouped_maintenance_metrics(start_date, end_date, group_by, vehicles_count, vehicle_type)}
         return Response(data=grouped_metrics | {"vehicle_health_metrics": vehicle_health_metrics}, status=status.HTTP_200_OK)
 
-    def _get_grouped_maintenance_metrics(self, start_date: str, end_date: str, group_by: str, vehicle_count: int) -> DefaultDict[Any, DefaultDict[str, Union[float, str]]]:
+    def _get_grouped_maintenance_metrics(self, start_date: str, end_date: str, group_by: str, vehicle_count: int, vehicle_type: Optional[str]) -> DefaultDict[Any, DefaultDict[str, Union[float, str]]]:
         """Get maintenance costs grouped by time period with change metrics.
 
         Args:
@@ -127,6 +127,9 @@ class FleetWideOverviewView(APIView):
             start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
             end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
             filters &= Q(start_date__gte=start_date, start_date__lte=end_date)
+
+        if vehicle_type:
+            filters &= Q(vehicle__type=vehicle_type)
 
         # Define grouping strategies
         grouping_strategies = {
@@ -265,7 +268,7 @@ class FleetWideOverviewView(APIView):
         start_month = current_quarter * 3 + 1
         end_month = start_month + 2
         filters = Q(profile__user=self.request.user, start_date__year=current_year)
-        filters &= Q(vehicle__vehicle_type=vehicle_type) if vehicle_type else Q()
+        filters &= Q(vehicle__type=vehicle_type) if vehicle_type else Q()
         maintenance_cost_metrics = MaintenanceReport.objects.filter(filters).aggregate(
             total_maintenance_cost__year=Sum('total_cost', default=0),
             total_maintenance_cost__quarter=Sum('total_cost', filter=Q(start_date__month__range=(start_month, end_month)), default=0),
