@@ -224,6 +224,18 @@ class FleetWideOverviewViewTestCases(APITestCase):
     def test_correct_metrics_when_grouping_and_time_range_filters_are_given(self):
         self._calculate_metrics_and_assert_response(group_by="quarterly", start_date="2024-10-01", end_date="2025-5-01")
 
+    def test_successful_response_when_vehicle_type_is_given(self):
+        response = self.client.get(reverse('fleet-wide-overview'), {"vehicle_type": "TRUCK"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for key in ('vehicle_health_metrics', 'total_maintenance_cost'):
+            self.assertIn(key, response.data)
+
+    def test_successful_response_when_vehicle_type_is_given_with_filters(self):
+        response = self.client.get(reverse('fleet-wide-overview'), {"vehicle_type": "TRUCK", "group_by": "monthly"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for key in ('vehicle_health_metrics', 'grouped_metrics'):
+            self.assertIn(key, response.data)
+
     def test_fleet_overview_with_filters_when_no_vehicles_exist(self):
         Vehicle.objects.all().delete()
         response = self.client.get(reverse('fleet-wide-overview'), {"group_by": "monthly"})
