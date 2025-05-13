@@ -91,7 +91,7 @@ class FleetWideOverviewView(APIView):
         end_date = request.query_params.get('end_date', None)
         group_by = request.query_params.get('group_by', None)
         vehicles_count = Vehicle.objects.filter(profile__user=self.request.user).count()
-        vehicle_health_metrics = self._get_health_metrics()
+        vehicle_health_metrics = self._get_health_metrics(vehicle_type)
 
         # Handle request when filters are not provided
         if not group_by and not end_date:
@@ -119,7 +119,7 @@ class FleetWideOverviewView(APIView):
             group_by = "monthly"
 
         if vehicle_count <= 0:
-            raise  ValidationError("Cannot process request: No vehicles found in your fleet.")
+            raise ValidationError("Cannot process request: No vehicles found in your fleet.")
 
         # Build filters
         filters = Q(profile__user=self.request.user)
@@ -167,7 +167,7 @@ class FleetWideOverviewView(APIView):
             returned_data[time_period][change_metric_key] = change_pct
         return returned_data
 
-    def _get_health_metrics(self):
+    def _get_health_metrics(self, vehicle_type: Optional[str] = None) -> dict[str, float]:
         """
         Generates vehicle health metrics for the authenticated user.
 
@@ -185,7 +185,9 @@ class FleetWideOverviewView(APIView):
         current = now().date()
         thirty = timedelta(days=30)
         zero = timedelta(days=0)
-        raw_health_metrics = Vehicle.objects.filter(profile__user=self.request.user).annotate(
+        filters = Q(profile__user=self.request.user)
+        filters &= Q(type=vehicle_type) if vehicle_type else Q()
+        raw_health_metrics = Vehicle.objects.filter(filters).annotate(
             service_gap=ExpressionWrapper(
                 F('next_service_due') - F('last_service_date'), output_field=DurationField()
             ),
@@ -274,15 +276,13 @@ class FleetWideOverviewView(APIView):
             total_maintenance_cost__quarter=Sum('total_cost', filter=Q(start_date__month__range=(start_month, end_month)), default=0),
             total_maintenance_cost__month=Sum('total_cost', filter=Q(start_date__month=current_month), default=0),
         )
-        top_recurring_issues = PartPurchaseEvent.objects.filter(
-            maintenance_report__profile__user=self.request.user,
-            maintenance_report__start_date__year=current_year
-        ).values('part__name').annotate(count=Count('id')).order_by('-count', 'part__name')[:3]
+        filters = Q(maintenance_report__profile__user=self.request.user, maintenance_report__start_date__year=current_year)
+        filters &= Q(maintenance_report__vehicle__type=vehicle_type) if vehicle_type else Q()
+        top_recurring_issues = PartPurchaseEvent.objects.filter(filters).values('part__name').annotate(count=Count('id')).order_by('-count', 'part__name')[:3]
 
-        previous_year_total_cost = MaintenanceReport.objects.filter(
-            profile__user=self.request.user,
-            start_date__year=current_year - 1
-        ).aggregate(Sum('total_cost', default=0))['total_cost__sum']
+        filters = Q(profile__user=self.request.user, start_date__year=current_year - 1)
+        filters &= Q(vehicle__type=vehicle_type) if vehicle_type else Q()
+        previous_year_total_cost = MaintenanceReport.objects.filter(filters).aggregate(Sum('total_cost', default=0))['total_cost__sum']
         yoy = round((maintenance_cost_metrics['total_maintenance_cost__year'] - previous_year_total_cost) / previous_year_total_cost * 100,
                     2) if previous_year_total_cost else 0.0
 
