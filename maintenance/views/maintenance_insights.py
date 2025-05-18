@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import timedelta, datetime, date
 from typing import DefaultDict, Any, Union, Optional
 
-from django.db.models import F, Q, Sum, ExpressionWrapper, DurationField, Avg, Case, When, FloatField, Count
+from django.db.models import F, Q, Sum, ExpressionWrapper, DurationField, Avg, Case, When, FloatField, Count, Value, CharField
 from django.db.models.functions import ExtractYear, ExtractMonth, ExtractQuarter, Round
 from django.utils.timezone import now
 from rest_framework import status
@@ -77,9 +77,9 @@ class FleetWideOverviewView(APIView):
 
         Returns:
             Response: A Response object containing either:
-                - The combined dictionary of core metrics and vehicle health metrics
+                - The combined dictionary of core metrics, vehicle health metrics, and health alerts,
                   if no grouping or date range is provided.
-                - The combined dictionary of grouped maintenance metrics and vehicle health
+                - The combined dictionary of grouped maintenance metrics, vehicle health, and health alerts,
                   metrics if grouping and/or date range filters are applied.
 
         Raises:
@@ -91,15 +91,15 @@ class FleetWideOverviewView(APIView):
         end_date = request.query_params.get('end_date', None)
         group_by = request.query_params.get('group_by', None)
         vehicles_count = Vehicle.objects.filter(profile__user=self.request.user).count()
-        vehicle_health_metrics = self._get_health_metrics(vehicle_type)
+        vehicle_health_metrics, health_alerts = self._get_health_metrics(vehicle_type)
 
         # Handle request when filters are not provided
         if not group_by and not end_date:
             core_metrics = self._get_core_metrics(vehicle_type)
-            return Response(data=core_metrics | {"vehicle_health_metrics": vehicle_health_metrics}, status=status.HTTP_200_OK)
+            return Response(data=core_metrics | {"vehicle_health_metrics": vehicle_health_metrics, "health_alerts": health_alerts}, status=status.HTTP_200_OK)
 
         grouped_metrics = {"grouped_metrics": self._get_grouped_maintenance_metrics(start_date, end_date, group_by, vehicles_count, vehicle_type)}
-        return Response(data=grouped_metrics | {"vehicle_health_metrics": vehicle_health_metrics}, status=status.HTTP_200_OK)
+        return Response(data=grouped_metrics | {"vehicle_health_metrics": vehicle_health_metrics, "health_alerts": health_alerts}, status=status.HTTP_200_OK)
 
     def _get_grouped_maintenance_metrics(self, start_date: str, end_date: str, group_by: str, vehicle_count: int, vehicle_type: Optional[str]) -> DefaultDict[Any, DefaultDict[str, Union[float, str]]]:
         """Get maintenance costs grouped by time period with change metrics.
@@ -167,7 +167,7 @@ class FleetWideOverviewView(APIView):
             returned_data[time_period][change_metric_key] = change_pct
         return returned_data
 
-    def _get_health_metrics(self, vehicle_type: Optional[str] = None) -> dict[str, float]:
+    def _get_health_metrics(self, vehicle_type: Optional[str] = None) -> (dict[str, float], dict[str, list[str]]):
         """
         Generates vehicle health metrics for the authenticated user.
 
@@ -178,9 +178,12 @@ class FleetWideOverviewView(APIView):
         are returned in a formatted structure.
 
         Returns:
-            dict: A dictionary containing the aggregated health metrics for vehicles,
-            categorized into service health, insurance health, and license health,
-            with each category having percentages for good, warning, and critical levels.
+            tuple[dict, dict]: A tuple containing:
+                1. A dictionary with aggregated health metrics for vehicles, categorized into service 
+                   health, insurance health, and license health, with percentages for good, warning, 
+                   and critical levels
+                2. A dictionary with lists of vehicle details (registration, make, model, year) for 
+                   each health category and status
         """
         current = now().date()
         thirty = timedelta(days=30)
@@ -197,7 +200,10 @@ class FleetWideOverviewView(APIView):
             license_gap=ExpressionWrapper(
                 F('license_expiry_date') - current, output_field=DurationField()
             ),
-        ).aggregate(
+        )
+
+        # Get aggregated percentages
+        health_percentages = raw_health_metrics.aggregate(
             # Service health metrics
             vehicle_avg_health__good=Round(Avg(Case(When(service_gap__gt=thirty, then=1), default=0.0, output_field=FloatField())) * 100, precision=2),
             vehicle_avg_health__warning=Round(Avg(Case(When(service_gap__gt=zero, service_gap__lte=thirty, then=1), default=0.0, output_field=FloatField())) * 100, precision=2),
@@ -214,7 +220,48 @@ class FleetWideOverviewView(APIView):
             vehicle_license_health__critical=Round(Avg(Case(When(license_gap__lte=zero, then=1), default=0.0, output_field=FloatField())) * 100, precision=2)
         )
 
-        return self._format_health_metrics(raw_health_metrics)
+        # Categorize vehicles by their health status and get their IDs
+        with_health_annotation = raw_health_metrics.annotate(
+            service_health=Case(
+                When(service_gap__gt=thirty, then=Value("good")),
+                When(service_gap__gt=zero, service_gap__lte=thirty, then=Value("warning")),
+                default=Value("critical"),
+                output_field=CharField()
+            ),
+            insurance_health=Case(
+                When(insurance_gap__gt=thirty, then=Value("good")),
+                When(insurance_gap__gt=zero, insurance_gap__lte=thirty, then=Value("warning")),
+                default=Value("critical"),
+                output_field=CharField()
+            ),
+            license_health=Case(
+                When(license_gap__gt=thirty, then=Value("good")),
+                When(license_gap__gt=zero, license_gap__lte=thirty, then=Value("warning")),
+                default=Value("critical"),
+                output_field=CharField()
+            )
+        )
+
+        # Get lists of vehicle names and IDs for each health category
+        health_vehicles = {
+            'vehicle_avg_health': {
+                # 'good': list(with_health_annotation.filter(service_health="good").values_list('registration_number', 'make', 'model', 'year')),
+                'warning': list(with_health_annotation.filter(service_health="warning").values_list('registration_number', 'make', 'model', 'year')),
+                'critical': list(with_health_annotation.filter(service_health="critical").values_list('registration_number', 'make', 'model', 'year'))
+            },
+            'vehicle_insurance_health': {
+                # 'good': list(with_health_annotation.filter(insurance_health="good").values_list('registration_number', 'make', 'model', 'year')),
+                'warning': list(with_health_annotation.filter(insurance_health="warning").values_list('registration_number', 'make', 'model', 'year')),
+                'critical': list(with_health_annotation.filter(insurance_health="critical").values_list('registration_number', 'make', 'model', 'year'))
+            },
+            'vehicle_license_health': {
+                # 'good': list(with_health_annotation.filter(license_health="good").values_list('registration_number', 'make', 'model', 'year')),
+                'warning': list(with_health_annotation.filter(license_health="warning").values_list('registration_number', 'make', 'model', 'year')),
+                'critical': list(with_health_annotation.filter(license_health="critical").values_list('registration_number', 'make', 'model', 'year'))
+            }
+        }
+
+        return self._format_health_metrics(health_percentages), health_vehicles
 
     def _format_health_metrics(self, raw_health_metrics):
         """

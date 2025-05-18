@@ -68,10 +68,11 @@ class FleetWideOverviewViewTestCases(APITestCase):
 
     def test_successful_fleet_wide_overview_retrieval(self):
         response = self.client.get(reverse('fleet-wide-overview'))
+        print(response.data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Assert the structure of the response is correct
-        for first_layer_key in ('total_maintenance_cost', 'yoy', 'top_recurring_issues', 'vehicle_health_metrics'):
+        for first_layer_key in ('total_maintenance_cost', 'yoy', 'top_recurring_issues', 'vehicle_health_metrics', 'health_alerts'):
             self.assertIn(first_layer_key, response.data)
 
         for period in ('year', 'quarter', 'month'):
@@ -85,8 +86,11 @@ class FleetWideOverviewViewTestCases(APITestCase):
 
         for vehicle_health_type in ('vehicle_avg_health', 'vehicle_insurance_health', 'vehicle_license_health'):
             self.assertIn(vehicle_health_type, response.data['vehicle_health_metrics'])
+            self.assertIn(vehicle_health_type, response.data['health_alerts'])
             for health_status in ('good', 'warning', 'critical'):
                 self.assertIn(health_status, response.data['vehicle_health_metrics'][vehicle_health_type])
+                if health_status == 'good': continue
+                self.assertIn(health_status, response.data['health_alerts'][vehicle_health_type])
 
     def test_core_metrics_are_correct(self):
         def is_current(date_str: str, month=True) -> bool:
@@ -159,11 +163,34 @@ class FleetWideOverviewViewTestCases(APITestCase):
         calculated_metrics = {"vehicle_avg_health": {'good': 0.0, 'warning': 0.0, 'critical': 0.0},
                               "vehicle_insurance_health": {'good': 0.0, 'warning': 0.0, 'critical': 0.0},
                               "vehicle_license_health": {'good': 0.0, 'warning': 0.0, 'critical': 0.0}}
+        alerts = {
+            'vehicle_avg_health': {
+                'warning': [],
+                'critical': [],
+            },
+            'vehicle_insurance_health': {
+                'warning': [],
+                'critical': [],
+            },
+            'vehicle_license_health': {
+                'warning': [],
+                'critical': [],
+            }
+        }
         for vehicle in vehicles:
             fields = vehicle['fields']
-            calculated_metrics['vehicle_avg_health'][get_condition(parse_date(fields['next_service_due']) - parse_date(fields['last_service_date']))] += 1.0
-            calculated_metrics['vehicle_insurance_health'][get_condition(parse_date(fields['insurance_expiry_date']) - date.today())] += 1.0
-            calculated_metrics['vehicle_license_health'][get_condition(parse_date(fields['license_expiry_date']) - date.today())] += 1.0
+            condition = get_condition(parse_date(fields['next_service_due']) - parse_date(fields['last_service_date']))
+            if condition != 'good':
+                alerts['vehicle_avg_health'][condition].append((fields['registration_number'], fields['make'], fields['model'], fields['year']))
+            calculated_metrics['vehicle_avg_health'][condition] += 1.0
+            condition = get_condition(parse_date(fields['insurance_expiry_date']) - date.today())
+            if condition != 'good':
+                alerts['vehicle_insurance_health'][condition].append((fields['registration_number'], fields['make'], fields['model'], fields['year']))
+            calculated_metrics['vehicle_insurance_health'][condition] += 1.0
+            condition = get_condition(parse_date(fields['license_expiry_date']) - date.today())
+            if condition != 'good':
+                alerts['vehicle_license_health'][condition].append((fields['registration_number'], fields['make'], fields['model'], fields['year']))
+            calculated_metrics['vehicle_license_health'][condition] += 1.0
 
         for key in calculated_metrics.keys():
             for condition, count in calculated_metrics[key].items():
@@ -174,6 +201,14 @@ class FleetWideOverviewViewTestCases(APITestCase):
         for key in calculated_metrics.keys():
             for condition, avg in calculated_metrics[key].items():
                 self.assertEqual(vehicle_health_metrics[key][condition], avg, f'{key} metric with {condition} is not correct')
+
+        print(alerts)
+        print(response.data['health_alerts'])
+        for key in alerts.keys():
+            for condition, vehicles in alerts[key].items():
+                self.assertEqual(len(response.data['health_alerts'][key][condition]), len(vehicles), f'{key} alert with {condition} is not correct')
+                for vehicle in vehicles:
+                    self.assertIn(vehicle, response.data['health_alerts'][key][condition], f'{key} alert with {condition} is not correct')
 
     def test_top_recurring_part_issues(self):
         def is_current_year(date_str: str) -> bool:
