@@ -281,6 +281,7 @@ ALLOWED_HOSTS = [
     'localhost',  # for development
     '127.0.0.1',
     "api.fleetmasters.net",
+    "fleetmaster.onrender.com",
 ]
 
 # media configuration
