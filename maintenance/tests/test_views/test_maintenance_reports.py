@@ -67,6 +67,14 @@ class MaintenanceReportListViewTestCases(APITestCase):
         total_cost += sum(event['cost'] for event in self.maintenance_report_data['service_provider_events'])
         self.assertEqual(response.data["total_cost"], total_cost)
 
+    def test_correct_total_cost_after_report_creation(self):
+        data = copy.deepcopy(self.maintenance_report_data)
+        data["part_purchase_events"][0]['cost'] = 500
+        data["service_provider_events"][0]['cost'] = 200
+        response = self.client.post(reverse("reports"), data=data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["total_cost"], 700)
+
     def test_failed_creation_of_new_report_without_service_provider_event(self):
         self.maintenance_report_data.pop("service_provider_events")
         response = self.client.post(reverse('reports'), data=self.maintenance_report_data, format='json')

@@ -87,7 +87,7 @@ class MaintenanceReportSerializer(serializers.ModelSerializer):
         if not service_provider_events_data:
             raise serializers.ValidationError("At least one service provider event is required")
 
-        total_cost = sum(event.get('cost', 0) for event in service_provider_events_data)
+        total_cost = sum(event.get('cost', 0) for event in part_purchase_events_data)
         total_cost += sum(event.get('cost', 0) for event in service_provider_events_data)
 
         with transaction.atomic():
