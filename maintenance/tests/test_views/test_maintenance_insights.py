@@ -68,7 +68,6 @@ class FleetWideOverviewViewTestCases(APITestCase):
 
     def test_successful_fleet_wide_overview_retrieval(self):
         response = self.client.get(reverse('fleet-wide-overview'))
-        print(response.data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         # Assert the structure of the response is correct
@@ -202,8 +201,6 @@ class FleetWideOverviewViewTestCases(APITestCase):
             for condition, avg in calculated_metrics[key].items():
                 self.assertEqual(vehicle_health_metrics[key][condition], avg, f'{key} metric with {condition} is not correct')
 
-        print(alerts)
-        print(response.data['health_alerts'])
         for key in alerts.keys():
             for condition, vehicles in alerts[key].items():
                 self.assertEqual(len(response.data['health_alerts'][key][condition]), len(vehicles), f'{key} alert with {condition} is not correct')
