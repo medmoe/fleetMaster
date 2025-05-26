@@ -192,6 +192,42 @@
     }
   },
   {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 15,
+    "fields": {
+      "part": 2,
+      "provider": 2,
+      "maintenance_report": 10,
+      "purchase_date": "2017-12-29",
+      "cost": 500,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 16,
+    "fields": {
+      "part": 2,
+      "provider": 2,
+      "maintenance_report": 10,
+      "purchase_date": "2017-12-29",
+      "cost": 600,
+      "receipt": ""
+    }
+  },
+  {
+    "model": "maintenance.partpurchaseevent",
+    "pk": 17,
+    "fields": {
+      "part": 1,
+      "provider": 2,
+      "maintenance_report": 11,
+      "purchase_date": "2017-12-29",
+      "cost": 500,
+      "receipt": ""
+    }
+  },
+  {
     "model": "maintenance.serviceproviderevent",
     "pk": 1,
     "fields": {
@@ -283,6 +319,18 @@
       "service_provider": 1,
       "service_date": "1971-08-18",
       "cost": 2634,
+      "receipt": "",
+      "description": "Foot look tax film road than sense begin. Capital fund lose six research treatment. National involve space apply determine."
+    }
+  },
+  {
+    "model": "maintenance.serviceproviderevent",
+    "pk": 9,
+    "fields": {
+      "maintenance_report": 11,
+      "service_provider": 1,
+      "service_date": "1971-08-18",
+      "cost": 1000,
       "receipt": "",
       "description": "Foot look tax film road than sense begin. Capital fund lose six research treatment. National involve space apply determine."
     }

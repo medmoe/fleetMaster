@@ -16,7 +16,7 @@ from vehicles.models import Vehicle
 
 PATH = 'maintenance/tests/fixtures/'
 
-class MaintenanceReportOverviewTestCases(APITestCase):
+class VehicleMaintenanceReportOverviewTests(APITestCase):
     fixtures = [f'{PATH}user_and_userprofile_fixture', f'{PATH}parts_fixture', f'{PATH}providers_fixture', f'{PATH}vehicles_fixture', f'{PATH}reports_fixture',
                 f'{PATH}events_fixture']
 
@@ -25,10 +25,14 @@ class MaintenanceReportOverviewTestCases(APITestCase):
         self.vehicle = Vehicle.objects.filter(profile__user__pk=1, pk=1).first()
         self.client.cookies['access'] = access_token
 
+
     def test_successful_maintenance_report_retrieval(self):
-        response = self.client.get(reverse('overview'), data={"vehicle_id": self.vehicle.id})
+        response = self.client.get(reverse('overview', args=[self.vehicle.id]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(self.vehicle.maintenance_reports.count(), len(response.data))
+        # Assert the correct structure of the response
+        for year, item in response.data:
+            for key in ('total_cost', 'top_recurring_issues', 'yoy_change'):
+                self.assertIn(key, item)
 
 
 class GeneralMaintenanceDataTests(APITestCase):

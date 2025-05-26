@@ -16,7 +16,7 @@ urlpatterns = [
     path('service-provider-events/<int:pk>/', ServiceProviderEventDetailsView.as_view(), name='service-provider-event-details'),
     path('reports/', MaintenanceReportListView.as_view(), name='reports'),
     path('reports/<int:pk>/', MaintenanceReportDetailsView.as_view(), name='reports-details'),
-    path('overview/', VehicleMaintenanceReportOverview.as_view(), name="overview"),
+    path('<int:pk>/overview/', VehicleMaintenanceReportOverview.as_view(), name="overview"),
     path('general-data/', GeneralMaintenanceDataView.as_view(), name="general-data"),
     path('fleet-wide-overview/', FleetWideOverviewView.as_view(), name="fleet-wide-overview"),
 ]

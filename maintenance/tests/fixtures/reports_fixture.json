@@ -124,5 +124,33 @@
       "mileage": 7132,
       "total_cost": 8035
     }
+  },
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 10,
+    "fields": {
+      "profile": 1,
+      "vehicle": 1,
+      "maintenance_type": "PREVENTIVE",
+      "start_date": "2024-01-19",
+      "end_date": "2024-02-01",
+      "description": "Head continue decade why thank decision. Color authority far situation.",
+      "mileage": 7132,
+      "total_cost": 1100
+    }
+  },
+  {
+    "model": "maintenance.maintenancereport",
+    "pk": 11,
+    "fields": {
+      "profile": 1,
+      "vehicle": 1,
+      "maintenance_type": "PREVENTIVE",
+      "start_date": "2024-02-19",
+      "end_date": "2024-03-01",
+      "description": "Head continue decade why thank decision. Color authority far situation.",
+      "mileage": 7132,
+      "total_cost": 1500
+    }
   }
 ]

@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from datetime import timedelta, datetime
 from typing import Optional, DefaultDict, Any, Union
 
@@ -316,3 +316,31 @@ class FleetMaintenanceService:
             return f"{entry['year']}-{entry['time_period']}"
 
         return [{'time_period': get_period(entry), "total_cost": entry['total_cost']} for entry in grouped_data]
+
+
+class VehicleMaintenanceService:
+    @staticmethod
+    def format_yearly_maintenance_data(cursor_results):
+        """
+        Format raw query results into a structured yearly and monthly maintenance report.
+
+        Args:
+            cursor_results: Raw results from database cursor
+
+        Returns:
+            List of yearly maintenance data with costs and top recurring issues
+        """
+        # Create a dictionary to organize data by year
+        data = OrderedDict()
+        for row in cursor_results:
+            data_type, year, month, total_cost, previous_year_cost, change_pct, part_name, part_count, part_cost, part_rank = row
+            if data_type == 'yearly_cost':
+                data[int(year)] = {'total_cost': total_cost, 'top_recurring_issues': [], 'yoy_change': change_pct}
+            elif data_type == 'monthly_cost':
+                data[int(year)][int(month)] = {'total_cost': total_cost, 'top_recurring_issues': [], 'mom_change': change_pct}
+            elif data_type == 'yearly_part':
+                data[int(year)]['top_recurring_issues'].append({'part_name': part_name, 'part_count': part_count, 'part_cost': part_cost, 'part_rank': part_rank})
+            elif data_type == 'monthly_part':
+                data[int(year)][int(month)]['top_recurring_issues'].append({'part_name': part_name, 'part_count': part_count, 'part_cost': part_cost, 'part_rank': part_rank})
+
+        return list(data.items())

@@ -1,3 +1,4 @@
+from django.db import connection
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -5,8 +6,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from maintenance.models import Part, ServiceProvider, PartsProvider
+from maintenance.queries import COMBINED_YEARLY_DATA_QUERY
 from maintenance.serializers import PartSerializer, ServiceProviderSerializer, PartsProviderSerializer
-from maintenance.services.fleet_services import FleetHealthService, FleetMaintenanceService
+from maintenance.services.fleet_services import FleetHealthService, FleetMaintenanceService, VehicleMaintenanceService
 from vehicles.models import Vehicle
 
 
@@ -18,34 +20,14 @@ class VehicleMaintenanceReportOverview(APIView):
             return Vehicle.objects.get(pk=pk, profile__user=user)
         except Vehicle.DoesNotExist:
             raise ValidationError(detail={"Vehicle does not exist!"})
-
+        
     def get(self, request, pk):
-        pass
-
-    # def get_queryset(self, request):
-    #     """
-    #     Fetch maintenance reports for the current and previous years of a given vehicle.
-    #     """
-    #     current_year = now().year
-    #     previous_start_date = date(current_year - 1, 1, 1)
-    #     vehicle_id = request.query_params.get('vehicle_id', None)
-    #
-    #     if not vehicle_id or not vehicle_id.isdigit():
-    #         raise ValidationError(detail={"vehicle_id": "Vehicle ID is required"})
-    #
-    #     # Combine the conditions for current and previous year
-    #     reports_queryset = MaintenanceReport.objects.filter(
-    #         profile__user=self.request.user,
-    #         vehicle=vehicle_id,
-    #         start_date__gte=previous_start_date  # Covers both previous and current year start dates
-    #     ).order_by("start_date")  # Sort by start date chronologically
-    #
-    #     return reports_queryset
-    #
-    # def get(self, request):
-    #     report_queryset = self.get_queryset(request)
-    #     reports_serializer = MaintenanceReportSerializer(report_queryset, many=True, context={'request': request})
-    #     return Response(reports_serializer.data, status=status.HTTP_200_OK)
+        vehicle = self.get_vehicle(pk, request.user)
+        params = [vehicle.id, request.user.id, vehicle.id, request.user.id, vehicle.id, request.user.id, vehicle.id, request.user.id]
+        with connection.cursor() as cursor:
+            # Pass vehicle_id and profile_id twice (once for each CTE that needs them)
+            cursor.execute(COMBINED_YEARLY_DATA_QUERY, params)
+            return Response(VehicleMaintenanceService.format_yearly_maintenance_data(cursor.fetchall()), status=status.HTTP_200_OK)
 
 
 class GeneralMaintenanceDataView(APIView):
