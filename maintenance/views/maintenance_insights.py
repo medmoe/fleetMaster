@@ -20,10 +20,11 @@ class VehicleMaintenanceReportOverview(APIView):
             return Vehicle.objects.get(pk=pk, profile__user=user)
         except Vehicle.DoesNotExist:
             raise ValidationError(detail={"Vehicle does not exist!"})
-        
+
     def get(self, request, pk):
         vehicle = self.get_vehicle(pk, request.user)
-        params = [vehicle.id, request.user.id, vehicle.id, request.user.id, vehicle.id, request.user.id, vehicle.id, request.user.id]
+        profile = request.user.userprofile.id
+        params = [vehicle.id, profile, vehicle.id, profile, vehicle.id, profile, vehicle.id, profile]
         with connection.cursor() as cursor:
             # Pass vehicle_id and profile_id twice (once for each CTE that needs them)
             cursor.execute(COMBINED_YEARLY_DATA_QUERY, params)
