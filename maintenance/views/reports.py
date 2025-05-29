@@ -36,7 +36,7 @@ class VehicleReportsListView(APIView):
         try:
             return Vehicle.objects.get(pk=pk, profile__user=user)
         except Vehicle.DoesNotExist:
-            raise ValidationError(detail={"Vehicle does not exist!"})
+            raise NotFound(detail="Vehicle does not exist")
 
     def get(self, request, pk):
         vehicle = self.get_vehicle(pk, request.user)
