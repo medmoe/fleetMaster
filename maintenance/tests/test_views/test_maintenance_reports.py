@@ -329,3 +329,58 @@ class MaintenanceReportDetailsTestCases(APITestCase):
             ServiceProviderEvent.objects.filter(maintenance_report_id=report_id).exists(),
             "Service provider events were not deleted with the maintenance report"
         )
+
+class VehicleReportsListTestCases(APITestCase):
+    fixtures = [f'{PATH}user_and_userprofile_fixture', f'{PATH}parts_fixture', f'{PATH}providers_fixture', f'{PATH}vehicles_fixture', f'{PATH}reports_fixture',
+                f'{PATH}events_fixture']
+
+    def setUp(self):
+        access_token = AccessToken.for_user(User.objects.get(pk=1))  # This is the PK of the user created from the loaded fixtures
+        self.vehicle = Vehicle.objects.filter(profile__user__pk=1, pk=1).first()
+        self.client.cookies['access'] = access_token
+
+    def test_failed_request_on_unauthorised_access(self):
+        self.client.cookies['access'] = None
+        response = self.client.get(reverse("vehicle-reports-list", args=[self.vehicle.id]))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_failed_request_on_non_existing_vehicle(self):
+        response = self.client.get(reverse("vehicle-reports-list", args=[100]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_successful_request_on_month_not_given(self):
+        response = self.client.get(reverse("vehicle-reports-list", args=[self.vehicle.id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for key in ('available_months', 'results'):
+            self.assertIn(key, response.data, f"Missing key {key} in response data")
+        self.assertFalse(response.data['results'])
+
+        # enumerate available months
+        vehicle_reports = MaintenanceReport.objects.filter(profile__user__pk=1, vehicle__id=self.vehicle.id).order_by('start_date')
+        available_months = set()
+        for report in vehicle_reports:
+            available_months.add(report.start_date.strftime("%Y-%m"))
+
+        # assert available months are correct
+        available_months = sorted(available_months, reverse=True)
+        self.assertEqual(response.data['available_months'], available_months)
+
+    def test_successful_request_on_month_given(self):
+        response = self.client.get(reverse("vehicle-reports-list", args=[self.vehicle.id]), data={"month": "2025-01"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for key in ('month', 'count', 'results'):
+            self.assertIn(key, response.data, f"Missing key {key} in response data")
+        self.assertEqual(response.data['month'], "2025-01")
+        vehicle_reports_count = MaintenanceReport.objects.filter(profile__user__pk=1,
+                                                                 vehicle__id=self.vehicle.id,
+                                                                 start_date__year=2025,
+                                                                 start_date__month=1).count()
+        self.assertEqual(response.data['count'], vehicle_reports_count)
+
+    def test_request_on_invalid_month(self):
+        response = self.client.get(reverse("vehicle-reports-list", args=[self.vehicle.id]), data={"month": "invalid format"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['results'])
+
+
+
