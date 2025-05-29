@@ -7,7 +7,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from maintenance.models import MaintenanceReport
+from maintenance.pagination import MonthlyPagination
 from maintenance.serializers import MaintenanceReportSerializer
+from vehicles.models import Vehicle
 
 
 class MaintenanceReportListView(APIView):
@@ -27,6 +29,22 @@ class MaintenanceReportListView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         raise ValidationError(detail=serializer.errors)
 
+
+class VehicleReportsListView(APIView):
+    permission_classes = [IsAuthenticated, ]
+    def get_vehicle(self, pk, user):
+        try:
+            return Vehicle.objects.get(pk=pk, profile__user=user)
+        except Vehicle.DoesNotExist:
+            raise ValidationError(detail={"Vehicle does not exist!"})
+
+    def get(self, request, pk):
+        vehicle = self.get_vehicle(pk, request.user)
+        reports = MaintenanceReport.objects.filter(profile__user=request.user, vehicle=vehicle).order_by("start_date")
+        paginator = MonthlyPagination()
+        paginated_reports = paginator.paginate_queryset(reports, request)
+        serializer = MaintenanceReportSerializer(paginated_reports, many=True, context={'request': request})
+        return paginator.get_paginated_response(serializer.data)
 
 class MaintenanceReportDetailsView(APIView):
     permission_classes = [IsAuthenticated, ]
