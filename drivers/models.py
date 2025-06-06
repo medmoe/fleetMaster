@@ -1,4 +1,7 @@
+import random
+
 from django.db import models
+
 from accounts.models import UserProfile
 
 
@@ -10,7 +13,7 @@ class EmploymentStatusChoices(models.TextChoices):
 
 class Driver(models.Model):
     profile = models.ForeignKey("accounts.UserProfile", on_delete=models.CASCADE)
-    vehicle = models.ForeignKey("vehicles.Vehicle", on_delete=models.CASCADE, null=True, blank=True,)
+    vehicle = models.ForeignKey("vehicles.Vehicle", on_delete=models.CASCADE, null=True, blank=True, )
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
     email = models.CharField(max_length=255, blank=True, null=True)
@@ -25,12 +28,36 @@ class Driver(models.Model):
     country = models.CharField(max_length=100, blank=True)
     profile_picture = models.ImageField(upload_to='profile_pics/', null=True)
     hire_date = models.DateField(blank=True)
-    employment_status = models.CharField(max_length=100,choices=EmploymentStatusChoices.choices,default=EmploymentStatusChoices.ACTIVE)
+    employment_status = models.CharField(max_length=100, choices=EmploymentStatusChoices.choices, default=EmploymentStatusChoices.ACTIVE)
     emergency_contact_name = models.CharField(max_length=100, blank=True)
     emergency_contact_phone = models.CharField(max_length=100, blank=True)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    access_code = models.CharField(max_length=8, unique=True, blank=True, null=True)
 
     def __str__(self):
         return f'{self.first_name} {self.last_name}'
+
+    def generate_access_code(self):
+        """Generate a unique 6-character access code for the driver."""
+
+        def calculate_checksum(code):
+            return str(sum(ord(c) for c in code) % 10)
+
+        chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+        while True:
+            code = "".join(random.choices(chars, k=6))
+            checksum = calculate_checksum(code)
+            full_code = f'{code}-{checksum}'
+            if not Driver.objects.filter(access_code=full_code).exists():
+                return full_code
+
+    def save(self, *args, **kwargs):
+        if not self.access_code:
+            self.access_code = self.generate_access_code()
+        super().save(*args, **kwargs)
+
+
+class DriverResponse(models.Model):
+    pass

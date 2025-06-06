@@ -6,6 +6,7 @@ from .models import Driver
 
 class DriverSerializer(serializers.ModelSerializer):
     vehicle_details = VehicleSerializer(source='vehicle', read_only=True)
+    access_code = serializers.CharField(read_only=True)
     class Meta:
         model = Driver
         fields = [
@@ -29,6 +30,7 @@ class DriverSerializer(serializers.ModelSerializer):
             "notes",
             "vehicle",
             "vehicle_details",
+            "access_code",
         ]
         read_only_fields = ['profile']
 

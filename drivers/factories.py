@@ -28,3 +28,10 @@ class DriverFactory(factory.django.DjangoModelFactory):
     emergency_contact_name = factory.Faker('name')
     emergency_contact_phone = factory.Faker('phone_number')
     notes = factory.Faker('text', max_nb_chars=200)
+
+    @factory.post_generation
+    def access_code(self, create, extracted, **kwargs):
+        if not create:
+            return
+        self.access_code = self.generate_access_code()
+        self.save()

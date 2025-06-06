@@ -1,4 +1,5 @@
 import datetime
+import re
 from random import choice
 
 from django.urls import reverse
@@ -54,8 +55,10 @@ class DriversListTestCases(APITestCase):
 
     def test_successful_drivers_retrieval(self):
         response = self.client.get(reverse("drivers"))
+        print(response.data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], len(self.drivers))
+
 
     def test_failed_drivers_retrieval_with_unauthenticated_user(self):
         self.client.cookies["access"] = None
@@ -70,6 +73,7 @@ class DriversListTestCases(APITestCase):
         self.assertIn("vehicle_details", response.data)
         # Assert that the vehicle details are the same as the provided vehicle
         self.assertEqual(response.data["vehicle_details"]["id"], self.data["vehicle"])
+        self.assertTrue(re.match(r'^[2-9A-HJ-NP-Z]{6}-[2-9A-HJ-NP-Z]$', response.data['access_code']))
 
     def test_successful_driver_creation_without_email(self):
         del self.data["email"]
