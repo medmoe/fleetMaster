@@ -1,3 +1,4 @@
+import datetime
 import random
 
 from django.db import models
@@ -9,6 +10,12 @@ class EmploymentStatusChoices(models.TextChoices):
     ACTIVE = "ACTIVE", "Active"
     INACTIVE = "INACTIVE", "Inactive"
     ON_LEAVE = "ON_LEAVE", "On leave"
+
+
+class AbsenceChoices(models.TextChoices):
+    MAINTENANCE = "MAINTENANCE", "Maintenance"
+    SICKNESS = "SICKNESS", "Sickness"
+    OTHER = "OTHER", "Other"
 
 
 class Driver(models.Model):
@@ -59,5 +66,16 @@ class Driver(models.Model):
         super().save(*args, **kwargs)
 
 
-class DriverResponse(models.Model):
-    pass
+class DriverStartingShift(models.Model):
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE, related_name='shifts')
+    date = models.DateField(default=datetime.date.today)
+    time = models.TimeField()
+    load = models.PositiveIntegerField()
+    mileage = models.PositiveIntegerField()
+    delivery_areas = models.JSONField(default=list)
+    status = models.BooleanField(default=True)
+    absence_type = models.CharField(max_length=100, choices=AbsenceChoices.choices, blank=True, null=True)
+    absence_description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f'{self.driver.first_name} {self.driver.last_name} - {self.date} - {self.time}'

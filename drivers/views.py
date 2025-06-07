@@ -99,3 +99,6 @@ class DriverLoginView(APIView):
             response.set_cookie(key='access', value=str(access), httponly=True, samesite="None", secure=True)
             return response
         return Response({"message": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
+class DriverStartingShiftView(APIView):
+    pass
