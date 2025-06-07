@@ -1,6 +1,7 @@
 import datetime
 import re
 from random import choice
+from unittest.mock import patch
 
 from django.urls import reverse
 from factory import LazyAttribute
@@ -58,7 +59,6 @@ class DriversListTestCases(APITestCase):
         print(response.data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], len(self.drivers))
-
 
     def test_failed_drivers_retrieval_with_unauthenticated_user(self):
         self.client.cookies["access"] = None
@@ -264,3 +264,159 @@ class DriverDetailTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         drivers = Driver.objects.filter(profile=self.user_one)
         self.assertFalse(drivers)
+
+
+class DriverLoginViewTests(APITestCase):
+    def setUp(self):
+        # Create a user and user profile
+        self.user_profile = UserProfileFactory.create()
+
+        # Create a driver with known credentials
+        self.driver = DriverFactory.create(profile=self.user_profile)
+        self.url = reverse('driver-login')
+
+    def test_successful_login(self):
+        """Test successful driver login with valid credentials."""
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+
+        # Check that the response status code is 200 OK
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Check that cookies are set
+        self.assertIn('refresh', response.cookies)
+        self.assertIn('access', response.cookies)
+
+        # Verify the cookies are httponly and secure
+        self.assertTrue(response.cookies['refresh']['httponly'])
+        self.assertTrue(response.cookies['access']['httponly'])
+        self.assertTrue(response.cookies['refresh']['secure'])
+        self.assertTrue(response.cookies['access']['secure'])
+
+    def test_invalid_credentials(self):
+        """Test login failure with invalid credentials."""
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": "WRONG-CODE"  # Wrong access code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+
+        # Check that the response status code is 401 Unauthorized
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data["message"], "Invalid credentials")
+
+        # Check that no cookies are set
+        self.assertNotIn('refresh', response.cookies)
+        self.assertNotIn('access', response.cookies)
+
+    def test_missing_fields(self):
+        """Test login with missing required fields."""
+        # Test with missing first_name
+        data = {
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Test with missing last_name
+        data = {
+            "first_name": self.driver.first_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Test with missing date_of_birth
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "access_code": self.driver.access_code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Test with missing access_code
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_nonexistent_driver(self):
+        """Test login with credentials that don't match any driver."""
+        data = {
+            "first_name": "Jane",  # Different name
+            "last_name": "Smith",  # Different name
+            "date_of_birth": "1990-01-15",
+            "access_code": "ABC123-7"
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_case_sensitivity(self):
+        """Test that first_name and last_name are case-sensitive."""
+        data = {
+            "first_name": self.driver.first_name.lower(),
+            "last_name": self.driver.last_name.lower(),
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_date_format(self):
+        """Test that date_of_birth needs to be in the correct format."""
+        # Test with different date format (MM/DD/YYYY instead of YYYY-MM-DD)
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth.strftime("%m/%d/%Y"),
+            "access_code": self.driver.access_code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['message'], "Date of birth must be in YYYY-MM-DD format.")
+
+    @patch('rest_framework_simplejwt.tokens.RefreshToken.for_user')
+    def test_token_generation_error(self, mock_for_user):
+        """Test handling of token generation errors."""
+        # Mock the token generation to raise an exception
+        mock_for_user.side_effect = Exception("Token generation error")
+
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code,
+        }
+
+        # This should catch the exception and return a 500 error
+        # Note: This assumes your view has error handling; if not, this test may fail
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def test_empty_request_body(self):
+        """Test login with empty request body."""
+        response = self.client.post(self.url, {}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
