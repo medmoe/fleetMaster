@@ -1,11 +1,12 @@
+from django.core.cache import cache
 from django.utils.dateparse import parse_date
 from rest_framework import status
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import UntypedToken
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import UntypedToken
 
 from .authentication import DriverRefreshToken, DriverJWTAuthentication
 from .models import Driver, DriverStartingShift
@@ -75,6 +76,12 @@ class DriverLoginView(APIView):
     permission_classes = [AllowAny, ]
 
     def post(self, request):
+        ip = self.get_client_ip(request)
+        cache_key = f'login_attempts_{ip}'
+        attempts = cache.get(cache_key, 0)
+        if attempts >= 10:
+            return Response({'message': 'Too many login attempts'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
         first_name = request.data.get("first_name")
         last_name = request.data.get("last_name")
         date_of_birth = request.data.get("date_of_birth")
@@ -114,7 +121,16 @@ class DriverLoginView(APIView):
             except Exception as e:
                 return Response({"message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+        cache.set(cache_key, attempts + 1, timeout=3600)
         return Response({"message": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
 
 
 class DriverTokenRefreshView(APIView):
