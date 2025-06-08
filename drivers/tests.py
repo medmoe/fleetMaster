@@ -3,6 +3,7 @@ import re
 from random import choice
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.urls import reverse
 from factory import LazyAttribute
 from rest_framework import status
@@ -56,7 +57,6 @@ class DriversListTestCases(APITestCase):
 
     def test_successful_drivers_retrieval(self):
         response = self.client.get(reverse("drivers"))
-        print(response.data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['count'], len(self.drivers))
 
@@ -275,6 +275,22 @@ class DriverLoginViewTests(APITestCase):
         self.driver = DriverFactory.create(profile=self.user_profile)
         self.url = reverse('driver-login')
 
+    def tearDown(self):
+        cache.clear()
+
+    def test_throttling_after_multiple_failed_attempts(self):
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": "INVALID-CODE"
+        }
+        for _ in range(10):  # Maximum number of failed attempts set in our settings
+            response = self.client.post(self.url, data, format='json')
+            self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
     def test_successful_login(self):
         """Test successful driver login with valid credentials."""
         data = {
@@ -433,19 +449,6 @@ class DriverLoginViewTests(APITestCase):
         """Test login with empty request body."""
         response = self.client.post(self.url, {}, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_throttling_after_multiple_failed_attempts(self):
-        data = {
-            "first_name": self.driver.first_name,
-            "last_name": self.driver.last_name,
-            "date_of_birth": self.driver.date_of_birth,
-            "access_code": "INVALID-CODE"
-        }
-        for _ in range(10):  # Maximum number of failed attempts set in our settings
-            response = self.client.post(self.url, data, format='json')
-            self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        response = self.client.post(self.url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 class DriverStartingShiftTests(APITestCase):
