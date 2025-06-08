@@ -12,7 +12,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from accounts.factories import UserProfileFactory, UserProfile
 from vehicles.factories import VehicleFactory
 from vehicles.models import Vehicle
-from .factories import DriverFactory
+from .factories import DriverFactory, DriverStartingShiftFactory
 from .models import Driver, EmploymentStatusChoices, DriverStartingShift
 from .serializers import DriverSerializer
 
@@ -411,7 +411,6 @@ class DriverLoginViewTests(APITestCase):
         response = self.client.get(reverse('drivers'))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-
     @patch('drivers.authentication.DriverToken.for_driver')
     def test_token_generation_error(self, mock_for_driver):
         """Test handling of token generation errors."""
@@ -434,7 +433,6 @@ class DriverLoginViewTests(APITestCase):
         """Test login with empty request body."""
         response = self.client.post(self.url, {}, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
 
 
 class DriverStartingShiftTests(APITestCase):
@@ -482,3 +480,63 @@ class DriverStartingShiftTests(APITestCase):
         response = self.client.post(reverse('starting-shift'), data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_successful_shifts_retrieval(self):
+        shifts = DriverStartingShiftFactory.create_batch(driver=self.driver, size=30)
+        response = self.client.get(reverse('starting-shift'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('count', response.data)
+        self.assertIn('results', response.data)
+        self.assertEqual(response.data['count'], len(shifts))
+
+    def test_cannot_get_shifts_created_by_others(self):
+        other_driver = DriverFactory.create(profile=self.user_profile)
+        shifts = DriverStartingShiftFactory.create_batch(driver=self.driver, size=10)
+        DriverStartingShiftFactory.create_batch(driver=other_driver, size=20)
+        response = self.client.get(reverse('starting-shift'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(DriverStartingShift.objects.count() == 30)
+        self.assertEqual(response.data['count'], len(shifts))
+
+
+class DriverStartingShiftDetailTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create a user and user profile
+        cls.user_profile = UserProfileFactory.create()
+        # Create a driver
+        cls.driver = DriverFactory.create(profile=cls.user_profile)
+
+    def setUp(self):
+        # Authenticate the driver
+        self.client.post(reverse('driver-login'), {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code
+        }, format='json')
+
+    def test_successful_starting_shift_detail_retrieval(self):
+        shift = DriverStartingShiftFactory.create(driver=self.driver)
+        response = self.client.get(reverse('starting-shift-detail', args=[shift.id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_successful_starting_shift_detail_update(self):
+        shift = DriverStartingShiftFactory.create(driver=self.driver)
+        data = {
+            "date": datetime.date.today().isoformat(),
+            "time": "09:00:00",
+            "load": 3000,
+            "mileage": 50000,
+            "delivery_areas": ["area1", "area2", "area3"],
+            "status": True,
+        }
+        response = self.client.put(reverse('starting-shift-detail', args=[shift.id]), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        for key in ('date', 'time', 'load', 'mileage', 'delivery_areas', 'status'):
+            self.assertEqual(response.data[key], data[key], f"Failed to update starting shift: {key} does not match")
+
+    def test_successful_starting_shift_detail_delete(self):
+        shift = DriverStartingShiftFactory.create(driver=self.driver)
+        response = self.client.delete(reverse('starting-shift-detail', args=[shift.id]))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(DriverStartingShift.objects.filter(id=shift.id).exists())

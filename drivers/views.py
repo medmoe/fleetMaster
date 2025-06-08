@@ -8,7 +8,7 @@ from rest_framework_simplejwt.tokens import UntypedToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 from .authentication import DriverRefreshToken, DriverJWTAuthentication
-from .models import Driver
+from .models import Driver, DriverStartingShift
 from .pagination import CustomPageNumberPagination
 from .permissions import IsDriverOwner, IsDriver
 from .serializers import DriverSerializer, DriverStartingShiftSerializer
@@ -162,9 +162,44 @@ class DriverStartingShiftView(APIView):
     permission_classes = [IsDriver]
 
     def post(self, request):
-
         serializer = DriverStartingShiftSerializer(data={'driver': request.driver.id, **request.data})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request):
+        shifts = DriverStartingShift.objects.filter(driver=request.driver).order_by("-date")
+        paginator = CustomPageNumberPagination()
+        paginated_shifts = paginator.paginate_queryset(shifts, request)
+        serializer = DriverStartingShiftSerializer(paginated_shifts, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class DriverStartingShiftDetailView(APIView):
+    authentication_classes = [DriverJWTAuthentication]
+    permission_classes = [IsDriver]
+
+    def get_object(self, pk):
+        try:
+            return DriverStartingShift.objects.get(pk=pk)
+        except DriverStartingShift.DoesNotExist:
+            raise NotFound(detail="Starting shift does not exist.")
+
+    def get(self, request, pk):
+        shift = self.get_object(pk)
+        serializer = DriverStartingShiftSerializer(shift)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request, pk):
+        shift = self.get_object(pk)
+        serializer = DriverStartingShiftSerializer(shift, data={'driver': request.driver.id, **request.data})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        shift = self.get_object(pk)
+        shift.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

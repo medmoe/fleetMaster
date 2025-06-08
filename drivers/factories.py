@@ -1,8 +1,7 @@
 # factories.py
 import factory
 
-from vehicles.factories import VehicleFactory  # Adjust import based on actual path
-from .models import Driver, EmploymentStatusChoices
+from .models import Driver, EmploymentStatusChoices, DriverStartingShift
 
 
 class DriverFactory(factory.django.DjangoModelFactory):
@@ -35,3 +34,16 @@ class DriverFactory(factory.django.DjangoModelFactory):
             return
         self.access_code = self.generate_access_code()
         self.save()
+
+
+class DriverStartingShiftFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = DriverStartingShift
+
+    driver = None
+    date = factory.Faker('date')
+    time = factory.Faker('time')
+    load = factory.Faker('random_int')
+    mileage = factory.Faker('random_int')
+    delivery_areas = factory.Faker('random_elements', elements=['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'])
+    status = factory.Faker('boolean')
