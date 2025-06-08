@@ -1,6 +1,9 @@
 import datetime
+import re
 from random import choice
+from unittest.mock import patch
 
+from django.core.cache import cache
 from django.urls import reverse
 from factory import LazyAttribute
 from rest_framework import status
@@ -10,8 +13,8 @@ from rest_framework_simplejwt.tokens import AccessToken
 from accounts.factories import UserProfileFactory, UserProfile
 from vehicles.factories import VehicleFactory
 from vehicles.models import Vehicle
-from .factories import DriverFactory
-from .models import Driver, EmploymentStatusChoices
+from .factories import DriverFactory, DriverStartingShiftFactory
+from .models import Driver, EmploymentStatusChoices, DriverStartingShift
 from .serializers import DriverSerializer
 
 
@@ -70,6 +73,7 @@ class DriversListTestCases(APITestCase):
         self.assertIn("vehicle_details", response.data)
         # Assert that the vehicle details are the same as the provided vehicle
         self.assertEqual(response.data["vehicle_details"]["id"], self.data["vehicle"])
+        self.assertTrue(re.match(r'^[2-9A-HJ-NP-Z]{6}-[2-9A-HJ-NP-Z]$', response.data['access_code']))
 
     def test_successful_driver_creation_without_email(self):
         del self.data["email"]
@@ -260,3 +264,295 @@ class DriverDetailTestCases(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         drivers = Driver.objects.filter(profile=self.user_one)
         self.assertFalse(drivers)
+
+
+class DriverLoginViewTests(APITestCase):
+    def setUp(self):
+        # Create a user and user profile
+        self.user_profile = UserProfileFactory.create()
+
+        # Create a driver with known credentials
+        self.driver = DriverFactory.create(profile=self.user_profile)
+        self.url = reverse('driver-login')
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_throttling_after_multiple_failed_attempts(self):
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": "INVALID-CODE"
+        }
+        for _ in range(10):  # Maximum number of failed attempts set in our settings
+            response = self.client.post(self.url, data, format='json')
+            self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_successful_login(self):
+        """Test successful driver login with valid credentials."""
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        # Check that the response status code is 200 OK
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('driver_id', response.data)
+        self.assertEqual(response.data['driver_id'], self.driver.id)
+
+        # Check that cookies are set
+        self.assertIn('driver_refresh', response.cookies)
+        self.assertIn('driver_access', response.cookies)
+
+        # Verify the cookies are httponly and secure
+        self.assertTrue(response.cookies['driver_refresh']['httponly'])
+        self.assertTrue(response.cookies['driver_access']['httponly'])
+        self.assertTrue(response.cookies['driver_refresh']['secure'])
+        self.assertTrue(response.cookies['driver_access']['secure'])
+
+    def test_invalid_credentials(self):
+        """Test login failure with invalid credentials."""
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": "WRONG-CODE"  # Wrong access code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+
+        # Check that the response status code is 401 Unauthorized
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data["message"], "Invalid credentials")
+
+        # Check that no cookies are set
+        self.assertNotIn('refresh', response.cookies)
+        self.assertNotIn('access', response.cookies)
+
+    def test_missing_fields(self):
+        """Test login with missing required fields."""
+        # Test with missing first_name
+        data = {
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Test with missing last_name
+        data = {
+            "first_name": self.driver.first_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Test with missing date_of_birth
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "access_code": self.driver.access_code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Test with missing access_code
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_nonexistent_driver(self):
+        """Test login with credentials that don't match any driver."""
+        data = {
+            "first_name": "Jane",  # Different name
+            "last_name": "Smith",  # Different name
+            "date_of_birth": "1990-01-15",
+            "access_code": "ABC123-7"
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_case_sensitivity(self):
+        """Test that first_name and last_name are case-sensitive."""
+        data = {
+            "first_name": self.driver.first_name.lower(),
+            "last_name": self.driver.last_name.lower(),
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_date_format(self):
+        """Test that date_of_birth needs to be in the correct format."""
+        # Test with different date format (MM/DD/YYYY instead of YYYY-MM-DD)
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth.strftime("%m/%d/%Y"),
+            "access_code": self.driver.access_code
+        }
+
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['message'], "Date of birth must be in YYYY-MM-DD format.")
+
+    def test_failed_access_to_manager_endpoint(self):
+        # Log the driver in
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code
+        }
+        self.client.post(self.url, data, format='json')
+        response = self.client.get(reverse('drivers'))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch('drivers.authentication.DriverToken.for_driver')
+    def test_token_generation_error(self, mock_for_driver):
+        """Test handling of token generation errors."""
+        # Mock the token generation to raise an exception
+        mock_for_driver.side_effect = Exception("Token generation error")
+
+        data = {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code,
+        }
+
+        # This should catch the exception and return a 500 error
+        # Note: This assumes your view has error handling; if not, this test may fail
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def test_empty_request_body(self):
+        """Test login with empty request body."""
+        response = self.client.post(self.url, {}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class DriverStartingShiftTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create a user and user profile
+        cls.user_profile = UserProfileFactory.create()
+        # Create a driver
+        cls.driver = DriverFactory.create(profile=cls.user_profile)
+
+        cls.data = {
+            "first_name": cls.driver.first_name,
+            "last_name": cls.driver.last_name,
+            "date_of_birth": cls.driver.date_of_birth,
+            "access_code": cls.driver.access_code
+        }
+
+    def setUp(self):
+        # Authenticate the driver
+        self.client.post(reverse('driver-login'), self.data, format='json')
+
+    def test_successful_starting_shift_creation(self):
+        data = {
+            "date": datetime.date.today().isoformat(),
+            "time": "09:00:00",
+            "load": 3000,
+            "mileage": 50000,
+            "delivery_areas": ["area1", "area2", "area3"],
+            "status": True,
+        }
+        response = self.client.post(reverse('starting-shift'), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        for key in ('date', 'time', 'load', 'mileage', 'delivery_areas', 'status'):
+            self.assertEqual(response.data[key], data[key], f"Failed to create starting shift: {key} does not match")
+
+    def test_failed_starting_shift_creation_with_invalid_date(self):
+        data = {
+            "date": "2022-13-01",
+            "time": "09:00:00",
+            "load": 3000,
+            "mileage": 50000,
+            "delivery_areas": ["area1", "area2", "area3"],
+            "status": True,
+        }
+        response = self.client.post(reverse('starting-shift'), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_successful_shifts_retrieval(self):
+        shifts = DriverStartingShiftFactory.create_batch(driver=self.driver, size=30)
+        response = self.client.get(reverse('starting-shift'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('count', response.data)
+        self.assertIn('results', response.data)
+        self.assertEqual(response.data['count'], len(shifts))
+
+    def test_cannot_get_shifts_created_by_others(self):
+        other_driver = DriverFactory.create(profile=self.user_profile)
+        shifts = DriverStartingShiftFactory.create_batch(driver=self.driver, size=10)
+        DriverStartingShiftFactory.create_batch(driver=other_driver, size=20)
+        response = self.client.get(reverse('starting-shift'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(DriverStartingShift.objects.count() == 30)
+        self.assertEqual(response.data['count'], len(shifts))
+
+
+class DriverStartingShiftDetailTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create a user and user profile
+        cls.user_profile = UserProfileFactory.create()
+        # Create a driver
+        cls.driver = DriverFactory.create(profile=cls.user_profile)
+
+    def setUp(self):
+        # Authenticate the driver
+        self.client.post(reverse('driver-login'), {
+            "first_name": self.driver.first_name,
+            "last_name": self.driver.last_name,
+            "date_of_birth": self.driver.date_of_birth,
+            "access_code": self.driver.access_code
+        }, format='json')
+
+    def test_successful_starting_shift_detail_retrieval(self):
+        shift = DriverStartingShiftFactory.create(driver=self.driver)
+        response = self.client.get(reverse('starting-shift-detail', args=[shift.id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_successful_starting_shift_detail_update(self):
+        shift = DriverStartingShiftFactory.create(driver=self.driver)
+        data = {
+            "date": datetime.date.today().isoformat(),
+            "time": "09:00:00",
+            "load": 3000,
+            "mileage": 50000,
+            "delivery_areas": ["area1", "area2", "area3"],
+            "status": True,
+        }
+        response = self.client.put(reverse('starting-shift-detail', args=[shift.id]), data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        for key in ('date', 'time', 'load', 'mileage', 'delivery_areas', 'status'):
+            self.assertEqual(response.data[key], data[key], f"Failed to update starting shift: {key} does not match")
+
+    def test_successful_starting_shift_detail_delete(self):
+        shift = DriverStartingShiftFactory.create(driver=self.driver)
+        response = self.client.delete(reverse('starting-shift-detail', args=[shift.id]))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(DriverStartingShift.objects.filter(id=shift.id).exists())

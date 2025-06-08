@@ -1,8 +1,7 @@
 # factories.py
 import factory
 
-from vehicles.factories import VehicleFactory  # Adjust import based on actual path
-from .models import Driver, EmploymentStatusChoices
+from .models import Driver, EmploymentStatusChoices, DriverStartingShift
 
 
 class DriverFactory(factory.django.DjangoModelFactory):
@@ -28,3 +27,23 @@ class DriverFactory(factory.django.DjangoModelFactory):
     emergency_contact_name = factory.Faker('name')
     emergency_contact_phone = factory.Faker('phone_number')
     notes = factory.Faker('text', max_nb_chars=200)
+
+    @factory.post_generation
+    def access_code(self, create, extracted, **kwargs):
+        if not create:
+            return
+        self.access_code = self.generate_access_code()
+        self.save()
+
+
+class DriverStartingShiftFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = DriverStartingShift
+
+    driver = None
+    date = factory.Faker('date')
+    time = factory.Faker('time')
+    load = factory.Faker('random_int')
+    mileage = factory.Faker('random_int')
+    delivery_areas = factory.Faker('random_elements', elements=['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'])
+    status = factory.Faker('boolean')

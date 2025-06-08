@@ -16,15 +16,15 @@ from vehicles.models import Vehicle
 
 PATH = 'maintenance/tests/fixtures/'
 
+
 class VehicleMaintenanceReportOverviewTests(APITestCase):
     fixtures = [f'{PATH}user_and_userprofile_fixture', f'{PATH}parts_fixture', f'{PATH}providers_fixture', f'{PATH}vehicles_fixture', f'{PATH}reports_fixture',
                 f'{PATH}events_fixture']
 
     def setUp(self):
-        access_token = AccessToken.for_user(User.objects.get(pk=1)) # Picked a user from our loaded fixture
+        access_token = AccessToken.for_user(User.objects.get(pk=1))  # Picked a user from our loaded fixture
         self.vehicle = Vehicle.objects.filter(profile__user__pk=1, pk=1).first()
         self.client.cookies['access'] = access_token
-
 
     def test_successful_maintenance_report_retrieval(self):
         response = self.client.get(reverse('overview', args=[self.vehicle.id]))
@@ -56,6 +56,7 @@ class GeneralMaintenanceDataTests(APITestCase):
                 ("part_providers", self.parts_providers)):
             self.assertIn(key, response.data)
             self.assertEqual(len(response.data[key]), len(items))
+
 
 class FleetWideOverviewViewTestCases(APITestCase):
     fixtures = [f'{PATH}user_and_userprofile_fixture', f'{PATH}parts_fixture', f'{PATH}providers_fixture', f'{PATH}vehicles_fixture', f'{PATH}reports_fixture',
@@ -128,7 +129,7 @@ class FleetWideOverviewViewTestCases(APITestCase):
         # Assert returned core metrics are correct
         current_year, current_month, current_quarter = 0, 0, 0
         previous_year_cost = 0
-        today = date(2025, 5, 1)  # According to the fixtures, this date value represents today's date
+        today = datetime.now().date()
         for report in reports:
             total = report['fields']['total_cost']
             start_date = report['fields']['start_date']
@@ -140,7 +141,7 @@ class FleetWideOverviewViewTestCases(APITestCase):
             current_quarter += total if is_current(start_date, month=False) else 0
 
         for key, expected_cost in zip(['year', 'quarter', 'month'], [current_year, current_quarter, current_month]):
-            self.assertEqual(response.data['total_maintenance_cost'][key]['total'], expected_cost)
+            self.assertEqual(response.data['total_maintenance_cost'][key]['total'], expected_cost, f'{key} total cost is not correct')
             self.assertEqual(response.data['total_maintenance_cost'][key]['vehicle_avg'], round(expected_cost / len(vehicles), 2))
 
         self.assertTrue(previous_year_cost != 0)
