@@ -219,3 +219,19 @@ class DriverStartingShiftDetailView(APIView):
         shift = self.get_object(pk)
         shift.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DriverAccessCodeView(APIView):
+    permission_classes = [IsAuthenticated, IsDriverOwner]
+    def get_driver(self, pk):
+        try:
+            return Driver.objects.get(pk=pk)
+        except Driver.DoesNotExist:
+            raise NotFound(detail="Driver does not exist.")
+
+    def put(self, request, pk):
+        driver = self.get_driver(pk)
+        self.check_object_permissions(request, driver)
+        driver.access_code = driver.generate_access_code()
+        driver.save()
+        return Response({'access_code': driver.access_code}, status=status.HTTP_202_ACCEPTED)

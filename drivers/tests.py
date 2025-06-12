@@ -556,3 +556,34 @@ class DriverStartingShiftDetailTests(APITestCase):
         response = self.client.delete(reverse('starting-shift-detail', args=[shift.id]))
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(DriverStartingShift.objects.filter(id=shift.id).exists())
+
+
+class DriverAccessCodeTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        cls.access_token = AccessToken.for_user(cls.user_profile.user)
+        cls.driver = DriverFactory.create_batch(profile=cls.user_profile, size=2)
+
+    def setUp(self):
+        self.client.cookies['access'] = self.access_token
+
+    def test_failed_update_with_unauthenticated_user(self):
+        self.client.cookies["access"] = None
+        response = self.client.put(reverse('access-code', args=[self.driver[0].id]))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_failed_update_with_not_own_driver(self):
+        other_user = UserProfileFactory.create()
+        self.client.cookies['access'] = AccessToken.for_user(other_user.user)
+        response = self.client.put(reverse('access-code', args=[self.driver[0].id]))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_driver_does_not_exist(self):
+        response = self.client.put(reverse('access-code', args=[9999]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_successful_update_of_driver_access_code(self):
+        response = self.client.put(reverse('access-code', args=[self.driver[0].id]))
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertTrue(response.data['access_code'] != self.driver[0].access_code)
