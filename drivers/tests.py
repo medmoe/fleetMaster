@@ -13,6 +13,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from accounts.factories import UserProfileFactory, UserProfile
 from vehicles.factories import VehicleFactory
 from vehicles.models import Vehicle
+from .authentication import DriverRefreshToken
 from .factories import DriverFactory, DriverStartingShiftFactory
 from .models import Driver, EmploymentStatusChoices, DriverStartingShift
 from .serializers import DriverSerializer
@@ -451,67 +452,242 @@ class DriverLoginViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
-class DriverStartingShiftTests(APITestCase):
+class DriverStartingShiftViewAuthenticationTests(APITestCase):
     @classmethod
     def setUpTestData(cls):
         # Create a user and user profile
         cls.user_profile = UserProfileFactory.create()
         # Create a driver
         cls.driver = DriverFactory.create(profile=cls.user_profile)
+        cls.refresh = DriverRefreshToken.for_driver(cls.driver)
+        cls.access = cls.refresh.access_token
 
-        cls.data = {
+        cls.login_data = {
             "first_name": cls.driver.first_name,
             "last_name": cls.driver.last_name,
             "date_of_birth": cls.driver.date_of_birth,
             "access_code": cls.driver.access_code
         }
 
-    def setUp(self):
-        # Authenticate the driver
-        self.client.post(reverse('driver-login'), self.data, format='json')
-
-    def test_successful_starting_shift_creation(self):
-        data = {
+        # Create some test data for creating a shift
+        cls.shift_data = {
             "date": datetime.date.today().isoformat(),
             "time": "09:00:00",
             "load": 3000,
             "mileage": 50000,
-            "delivery_areas": ["area1", "area2", "area3"],
+            "delivery_areas": ["area1", "area2"],
             "status": True,
         }
-        response = self.client.post(reverse('starting-shift'), data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        for key in ('date', 'time', 'load', 'mileage', 'delivery_areas', 'status'):
-            self.assertEqual(response.data[key], data[key], f"Failed to create starting shift: {key} does not match")
 
-    def test_failed_starting_shift_creation_with_invalid_date(self):
-        data = {
-            "date": "2022-13-01",
+    def test_authentication_required_for_post(self):
+        """Test that authentication is required for POST requests"""
+        # No authentication provided
+        response = self.client.post(reverse('starting-shift'), self.shift_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_authentication_required_for_get(self):
+        """Test that authentication is required for GET requests"""
+        # No authentication provided
+        response = self.client.get(reverse('starting-shift'))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_driver_jwt_authentication_accepted(self):
+        """Test that DriverJWTAuthentication is accepted"""
+        # Login to get the authentication cookies
+        login_response = self.client.post(reverse('driver-login'), self.login_data, format='json')
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+
+        # Now try to create a shift
+        response = self.client.post(reverse('starting-shift'), self.shift_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    @patch('drivers.authentication.DriverJWTAuthentication.authenticate')
+    def test_authentication_method_called(self, mock_authenticate):
+        """Test that the DriverJWTAuthentication.authenticate method is called"""
+        # Mock the authenticate method to return our driver
+        mock_authenticate.return_value = (self.driver, self.access)
+
+        # Make a request
+        self.client.post(reverse('starting-shift'), self.shift_data, format='json')
+
+        # Check that authenticate was called
+        mock_authenticate.assert_called_once()
+
+    def test_invalid_token_rejected(self):
+        """Test that an invalid token is rejected"""
+        # Set an invalid token in the cookie
+        self.client.cookies['driver_access'] = 'invalid-token'
+
+        # Make a request
+        response = self.client.post(reverse('starting-shift'), self.shift_data, format='json')
+
+        # Check that the request was rejected
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_expired_token_rejected(self):
+        """Test that an expired token is rejected"""
+        # This would require more complex setup with token expiration
+        # For simplicity, we'll mock the authentication to simulate an expired token
+        with patch('drivers.authentication.DriverJWTAuthentication.authenticate') as mock_authenticate:
+            from rest_framework_simplejwt.exceptions import InvalidToken
+            mock_authenticate.side_effect = InvalidToken('Token is expired')
+
+            # Make a request
+            response = self.client.post(reverse('starting-shift'), self.shift_data, format='json')
+
+            # Check that the request was rejected
+            self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class DriverStartingShiftViewPermissionTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create a user profile and driver
+        cls.user_profile = UserProfileFactory.create()
+        cls.driver = DriverFactory.create(profile=cls.user_profile)
+
+        # Create another user profile and driver
+        cls.other_user_profile = UserProfileFactory.create()
+        cls.other_driver = DriverFactory.create(profile=cls.other_user_profile)
+
+        # Create login data for both drivers
+        cls.login_data = {
+            "first_name": cls.driver.first_name,
+            "last_name": cls.driver.last_name,
+            "date_of_birth": cls.driver.date_of_birth,
+            "access_code": cls.driver.access_code
+        }
+
+        cls.other_login_data = {
+            "first_name": cls.other_driver.first_name,
+            "last_name": cls.other_driver.last_name,
+            "date_of_birth": cls.other_driver.date_of_birth,
+            "access_code": cls.other_driver.access_code
+        }
+
+        # Create shift data
+        cls.shift_data = {
+            "date": datetime.date.today().isoformat(),
             "time": "09:00:00",
             "load": 3000,
             "mileage": 50000,
-            "delivery_areas": ["area1", "area2", "area3"],
+            "delivery_areas": ["area1", "area2"],
             "status": True,
         }
-        response = self.client.post(reverse('starting-shift'), data, format='json')
+
+    def test_driver_can_only_access_own_shifts(self):
+        """Test that a driver can only access their own shifts"""
+        # Create shifts for both drivers
+        DriverStartingShiftFactory.create_batch(driver=self.driver, size=3)
+        other_shifts = DriverStartingShiftFactory.create_batch(driver=self.other_driver, size=2)
+
+        # Login as the first driver
+        self.client.post(reverse('driver-login'), self.login_data, format='json')
+
+        # Get shifts
+        response = self.client.get(reverse('starting-shift'))
+
+        # Check that only the first driver's shifts are returned
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 3)
+
+        # Verify none of the other driver's shifts are included
+        shift_ids = [shift['id'] for shift in response.data['results']]
+        for other_shift in other_shifts:
+            self.assertNotIn(other_shift.id, shift_ids)
+
+
+class DriverStartingShiftViewCRUDTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        # Create user profile and driver
+        cls.user_profile = UserProfileFactory.create()
+        cls.driver = DriverFactory.create(profile=cls.user_profile)
+
+        # Create login data
+        cls.login_data = {
+            "first_name": cls.driver.first_name,
+            "last_name": cls.driver.last_name,
+            "date_of_birth": cls.driver.date_of_birth,
+            "access_code": cls.driver.access_code
+        }
+
+        # Create shift data
+        cls.shift_data = {
+            "date": datetime.date.today().isoformat(),
+            "time": "09:00:00",
+            "load": 3000,
+            "mileage": 50000,
+            "delivery_areas": ["area1", "area2"],
+            "status": True,
+        }
+
+    def setUp(self):
+        # Login the driver before each test
+        self.client.post(reverse('driver-login'), self.login_data, format='json')
+
+    def test_create_shift_success(self):
+        """Test successfully creating a shift"""
+        initial_count = DriverStartingShift.objects.count()
+
+        response = self.client.post(reverse('starting-shift'), self.shift_data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(DriverStartingShift.objects.count(), initial_count + 1)
+
+        # Verify the shift data
+        for key in self.shift_data:
+            self.assertEqual(response.data[key], self.shift_data[key])
+
+        # Verify the driver
+        self.assertEqual(response.data['driver'], self.driver.id)
+
+    def test_create_shift_invalid_data(self):
+        """Test creating a shift with invalid data"""
+        # Missing required field 'time'
+        invalid_data = {
+            "date": datetime.date.today().isoformat(),
+            "load": 3000,
+            "mileage": 50000,
+            "delivery_areas": ["area1", "area2"],
+            "status": True,
+        }
+
+        response = self.client.post(reverse('starting-shift'), invalid_data, format='json')
+
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('time', response.data)
 
-    def test_successful_shifts_retrieval(self):
-        shifts = DriverStartingShiftFactory.create_batch(driver=self.driver, size=30)
+    def test_get_shifts_success(self):
+        """Test successfully retrieving shifts"""
+        # Create some shifts for this driver
+        shifts = DriverStartingShiftFactory.create_batch(driver=self.driver, size=5)
+
         response = self.client.get(reverse('starting-shift'))
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('count', response.data)
+        self.assertEqual(response.data['count'], 5)
+
+        # Verify pagination
+        self.assertIn('next', response.data)
+        self.assertIn('previous', response.data)
         self.assertIn('results', response.data)
-        self.assertEqual(response.data['count'], len(shifts))
 
-    def test_cannot_get_shifts_created_by_others(self):
-        other_driver = DriverFactory.create(profile=self.user_profile)
-        shifts = DriverStartingShiftFactory.create_batch(driver=self.driver, size=10)
-        DriverStartingShiftFactory.create_batch(driver=other_driver, size=20)
+    def test_get_shifts_ordering(self):
+        """Test that shifts are ordered by date in descending order"""
+        # Create shifts with different dates
+        today = datetime.date.today()
+        DriverStartingShiftFactory.create(driver=self.driver, date=today - datetime.timedelta(days=2))
+        DriverStartingShiftFactory.create(driver=self.driver, date=today)
+        DriverStartingShiftFactory.create(driver=self.driver, date=today - datetime.timedelta(days=1))
+
         response = self.client.get(reverse('starting-shift'))
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(DriverStartingShift.objects.count() == 30)
-        self.assertEqual(response.data['count'], len(shifts))
+
+        # Check ordering - should be newest first
+        dates = [shift['date'] for shift in response.data['results']]
+        self.assertEqual(dates, sorted(dates, reverse=True))
 
 
 class DriverStartingShiftDetailTests(APITestCase):

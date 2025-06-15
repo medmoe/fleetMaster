@@ -65,7 +65,6 @@ class Driver(models.Model):
             self.access_code = self.generate_access_code()
         super().save(*args, **kwargs)
 
-
 class DriverStartingShift(models.Model):
     driver = models.ForeignKey(Driver, on_delete=models.CASCADE, related_name='shifts')
     date = models.DateField(default=datetime.date.today)

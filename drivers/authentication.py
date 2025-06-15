@@ -5,12 +5,13 @@ from django.conf import settings
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, AuthenticationFailed
 from rest_framework_simplejwt.tokens import Token
+from rest_framework_simplejwt.tokens import UntypedToken
 
 from drivers.models import Driver
 
 
 class DriverToken(Token):
-    token_type = 'driver'
+    token_type = 'driver_access'  # Changed from 'driver' to match what's being set in for_driver
     lifetime = settings.SIMPLE_JWT.get("ACCESS_TOKEN_LIFETIME", timedelta(minutes=120))
 
     @classmethod
@@ -63,22 +64,27 @@ class DriverJWTAuthentication(JWTAuthentication):
             return super().get_validated_token(raw_token)
         except InvalidToken:
             # If normal validation fails, try driver token validation
-            return self.validate_driver_token(raw_token)
+            try:
+                return self.validate_driver_token(raw_token)
+            except Exception as e:
+                # Re-raise as InvalidToken to maintain the expected exception type
+                raise InvalidToken('Token is not valid') from e
 
     def validate_driver_token(self, raw_token):
         """
         Validates a driver token
         """
-        from rest_framework_simplejwt.tokens import UntypedToken
+        try:
+            # Use UntypedToken to parse and validate the token without type checking
+            token = UntypedToken(raw_token)
 
-        # Use UntypedToken to parse and validate the token without type checking
-        token = UntypedToken(raw_token)
+            # Check if it's a driver token
+            if token.get('token_type') != 'driver_access':
+                raise InvalidToken('Token is not a valid driver token')
 
-        # Check if it's a driver token
-        if token.get('token_type') != 'driver_access':
-            raise InvalidToken('Token is not a valid driver token')
-
-        return token
+            return token
+        except Exception as e:
+            raise InvalidToken('Failed to validate driver token') from e
 
     def get_user(self, validated_token):
         """
