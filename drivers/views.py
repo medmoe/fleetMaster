@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from django.core.cache import cache
 from django.utils.dateparse import parse_date
 from rest_framework import status
@@ -235,3 +237,29 @@ class DriverAccessCodeView(APIView):
         driver.access_code = driver.generate_access_code()
         driver.save()
         return Response({'access_code': driver.access_code}, status=status.HTTP_202_ACCEPTED)
+
+class DriverOverdueFormsView(APIView):
+    authentication_classes = [DriverJWTAuthentication]
+    permission_classes = [IsDriver]
+    def get(self, request):
+        """
+        Returns a list of dates in the last 30 days that don't have any entries in the table.
+        """
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=29)
+
+        # Generate all dates in the table for the last 30 days
+        all_dates = [(start_date + timedelta(days=i)) for i in range(30)]
+
+        # Get all dates in the table for the last 30 days
+        existing_dates = DriverStartingShift.objects.filter(
+            driver=request.driver,
+            date__gte=start_date,
+            date__lte=end_date
+        ).values_list('date', flat=True).distinct()
+
+        existing_dates = set(existing_dates)
+        missing_dates = [date for date in all_dates if date not in existing_dates]
+        return Response({'missing_dates': missing_dates}, status=status.HTTP_200_OK)
+
+

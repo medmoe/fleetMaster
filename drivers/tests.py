@@ -1,11 +1,12 @@
-import datetime
 import re
+from datetime import timedelta, datetime, date
 from random import choice
 from unittest.mock import patch
 
 from django.core.cache import cache
 from django.urls import reverse
 from factory import LazyAttribute
+from factory import Sequence
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import AccessToken
@@ -33,15 +34,15 @@ class DriversListTestCases(APITestCase):
             "email": "johndoe@example.com",
             "phone_number": "+1234567890",
             "license_number": "D123456789",
-            "license_expiry_date": datetime.date(2025, 12, 31).isoformat(),
-            "date_of_birth": datetime.date(1985, 5, 20).isoformat(),
+            "license_expiry_date": date(2025, 12, 31).isoformat(),
+            "date_of_birth": date(1985, 5, 20).isoformat(),
             "address": "1234 Elm Street",
             "city": "New York",
             "state": "NY",
             "zip_code": "10001",
             "country": "USA",
             "profile_picture": None,  # Or a file upload object if testing file upload
-            "hire_date": datetime.date(2022, 1, 1).isoformat(),
+            "hire_date": date(2022, 1, 1).isoformat(),
             "employment_status": EmploymentStatusChoices.ACTIVE,
             "emergency_contact_name": "Jane Doe",
             "emergency_contact_phone": "+0987654321",
@@ -133,14 +134,14 @@ class DriverDetailTestCases(APITestCase):
             "email": cls.drivers_one[0].email,  # Updated email
             "phone_number": cls.drivers_one[0].phone_number,
             "license_number": "Updated License Number",  # Updated license number
-            "license_expiry_date": datetime.date(2025, 12, 31).isoformat(),  # Updated expiry date
-            "date_of_birth": datetime.date(2025, 12, 31).isoformat(),
+            "license_expiry_date": date(2025, 12, 31).isoformat(),  # Updated expiry date
+            "date_of_birth": date(2025, 12, 31).isoformat(),
             "address": cls.drivers_one[0].address,  # Updated address
             "city": cls.drivers_one[0].city,
             "state": cls.drivers_one[0].state,
             "zip_code": cls.drivers_one[0].zip_code,
             "country": cls.drivers_one[0].country,
-            "hire_date": datetime.date(2025, 12, 31).isoformat(),
+            "hire_date": date(2025, 12, 31).isoformat(),
             "employment_status": EmploymentStatusChoices.INACTIVE,  # Updated employment status
             "emergency_contact_name": cls.drivers_one[0].emergency_contact_name,
             "emergency_contact_phone": cls.drivers_one[0].emergency_contact_phone,
@@ -199,7 +200,7 @@ class DriverDetailTestCases(APITestCase):
                 self.assertEqual(getattr(updated_driver, field).id, self.data[field])
             elif isinstance(getattr(updated_driver, field), UserProfile):
                 self.assertEqual(getattr(updated_driver, field).id, self.data[field])
-            elif isinstance(getattr(updated_driver, field), datetime.date):
+            elif isinstance(getattr(updated_driver, field), date):
                 self.assertEqual(getattr(updated_driver, field).isoformat(), self.data[field])
             else:
                 self.assertEqual(getattr(updated_driver, field), self.data[field])
@@ -471,7 +472,7 @@ class DriverStartingShiftViewAuthenticationTests(APITestCase):
 
         # Create some test data for creating a shift
         cls.shift_data = {
-            "date": datetime.date.today().isoformat(),
+            "date": date.today().isoformat(),
             "time": "09:00:00",
             "load": 3000,
             "mileage": 50000,
@@ -567,7 +568,7 @@ class DriverStartingShiftViewPermissionTests(APITestCase):
 
         # Create shift data
         cls.shift_data = {
-            "date": datetime.date.today().isoformat(),
+            "date": date.today().isoformat(),
             "time": "09:00:00",
             "load": 3000,
             "mileage": 50000,
@@ -614,7 +615,7 @@ class DriverStartingShiftViewCRUDTests(APITestCase):
 
         # Create shift data
         cls.shift_data = {
-            "date": datetime.date.today().isoformat(),
+            "date": date.today().isoformat(),
             "time": "09:00:00",
             "load": 3000,
             "mileage": 50000,
@@ -646,7 +647,7 @@ class DriverStartingShiftViewCRUDTests(APITestCase):
         """Test creating a shift with invalid data"""
         # Missing required field 'time'
         invalid_data = {
-            "date": datetime.date.today().isoformat(),
+            "date": date.today().isoformat(),
             "load": 3000,
             "mileage": 50000,
             "delivery_areas": ["area1", "area2"],
@@ -676,10 +677,10 @@ class DriverStartingShiftViewCRUDTests(APITestCase):
     def test_get_shifts_ordering(self):
         """Test that shifts are ordered by date in descending order"""
         # Create shifts with different dates
-        today = datetime.date.today()
-        DriverStartingShiftFactory.create(driver=self.driver, date=today - datetime.timedelta(days=2))
+        today = date.today()
+        DriverStartingShiftFactory.create(driver=self.driver, date=today - timedelta(days=2))
         DriverStartingShiftFactory.create(driver=self.driver, date=today)
-        DriverStartingShiftFactory.create(driver=self.driver, date=today - datetime.timedelta(days=1))
+        DriverStartingShiftFactory.create(driver=self.driver, date=today - timedelta(days=1))
 
         response = self.client.get(reverse('starting-shift'))
 
@@ -715,7 +716,7 @@ class DriverStartingShiftDetailTests(APITestCase):
     def test_successful_starting_shift_detail_update(self):
         shift = DriverStartingShiftFactory.create(driver=self.driver)
         data = {
-            "date": datetime.date.today().isoformat(),
+            "date": date.today().isoformat(),
             "time": "09:00:00",
             "load": 3000,
             "mileage": 50000,
@@ -763,3 +764,135 @@ class DriverAccessCodeTests(APITestCase):
         response = self.client.put(reverse('access-code', args=[self.driver[0].id]))
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         self.assertTrue(response.data['access_code'] != self.driver[0].access_code)
+
+
+class DriverOverdueFormsTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_profile = UserProfileFactory.create()
+        # Create a driver
+        cls.driver = DriverFactory.create(profile=cls.user_profile)
+        refresh = DriverRefreshToken.for_driver(cls.driver)
+        # Set up tokens for driver authentication
+        cls.access_token = refresh.access_token
+        cls.url = reverse('overdue-forms')
+
+        # Create another driver for comparison tests
+        cls.other_driver = DriverFactory.create(profile=cls.user_profile)
+        cls.other_token = DriverRefreshToken.for_driver(cls.other_driver).access_token
+
+    def setUp(self):
+        # Set up authentication for each test
+        self.client.cookies['driver_access'] = self.access_token
+
+    def test_authentication_required(self):
+        self.client.cookies['driver_access'] = None
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_no_shifts_returns_all_dates(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('missing_dates', response.data)
+        self.assertTrue(len(response.data['missing_dates']) == 30)
+        start_date = datetime.now().date() - timedelta(days=29)
+        for date in response.data['missing_dates']:
+            self.assertEqual(date, start_date)
+            start_date += timedelta(days=1)
+
+    def test_with_some_shifts_present(self):
+        """Test that dates with shifts are not included in missing dates"""
+        today = datetime.now().date()
+        start_date = today - timedelta(days=29)
+
+        # Create a list of specific dates to create shifts for
+        # Let's create shifts for every 5th day in the 30-day period
+        shift_dates = [start_date + timedelta(days=i) for i in range(0, 30, 5)]
+
+        # Use a sequence to cycle through these dates
+        date_sequence = Sequence(lambda n: shift_dates[n % len(shift_dates)])
+
+        # Create 6 shifts (one for each date in shift_dates)
+        shifts = DriverStartingShiftFactory.create_batch(
+            size=len(shift_dates),
+            driver=self.driver,
+            date=date_sequence
+        )
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Should have 30 - len(shift_dates) missing dates
+        expected_missing_count = 30 - len(shift_dates)
+        self.assertEqual(len(response.data['missing_dates']), expected_missing_count)
+
+        # Convert response dates to date objects for comparison
+        response_dates = [datetime.strptime(date, '%Y-%m-%d').date()
+                          if isinstance(date, str) else date
+                          for date in response.data['missing_dates']]
+
+        # Verify none of the shift dates are in the response
+        for date in shift_dates:
+            self.assertNotIn(date, response_dates)
+
+        # Also verify all the expected missing dates are present
+        all_dates = [start_date + timedelta(days=i) for i in range(30)]
+        expected_missing_dates = [date for date in all_dates if date not in shift_dates]
+        self.assertEqual(sorted(response_dates), sorted(expected_missing_dates))
+
+    def test_with_all_shifts_present(self):
+        """Test that when a driver has shifts for all dates, no missing dates are returned"""
+        today = datetime.now().date()
+        start_date = today - timedelta(days=29)
+
+        # Create shifts for all 30 days
+        for i in range(30):
+            DriverStartingShiftFactory.create(
+                driver=self.driver,
+                date=start_date + timedelta(days=i)
+            )
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Should have 0 missing dates
+        self.assertEqual(len(response.data['missing_dates']), 0)
+
+    def test_multiple_shifts_same_date(self):
+        """Test that multiple shifts on the same date are correctly handled"""
+        test_date = datetime.now().date() - timedelta(days=5)
+
+        # Create multiple shifts for the same date
+        DriverStartingShiftFactory.create_batch(
+            size=3,
+            driver=self.driver,
+            date=test_date
+        )
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Should have 29 missing dates (30 - 1 with shifts)
+        self.assertEqual(len(response.data['missing_dates']), 29)
+
+        # Convert response dates to date objects for comparison
+        response_dates = [datetime.strptime(date, '%Y-%m-%d').date()
+                          if isinstance(date, str) else date
+                          for date in response.data['missing_dates']]
+
+        # Verify the test date is not in the response
+        self.assertNotIn(test_date, response_dates)
+
+    def test_driver_get_own_shifts_only(self):
+        # create some shifts
+        today = datetime.now().date()
+        start_date = today - timedelta(days=29)
+        for i in range(0, 30, 5):
+            DriverStartingShiftFactory.create(
+                driver=self.driver,
+                date=start_date + timedelta(days=i)
+            )
+        self.client.cookies['driver_access'] = self.other_token
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(response.data['missing_dates']) == 30)
