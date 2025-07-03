@@ -8,9 +8,13 @@ from .models import Part, ServiceProvider, PartsProvider, PartPurchaseEvent, Mai
 
 
 class PartSerializer(serializers.ModelSerializer):
+    isOwner = serializers.SerializerMethodField(read_only=True)
     class Meta:
         model = Part
         fields = "__all__"
+
+    def get_isOwner(self, obj):
+        return obj.profile == self.context['request'].user.userprofile
 
     def create(self, validated_data):
         profile = self.context['request'].user.userprofile

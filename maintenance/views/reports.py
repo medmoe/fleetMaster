@@ -57,7 +57,7 @@ class MaintenanceReportDetailsView(APIView):
 
     def get(self, request, pk):
         maintenance_report = self.get_object(pk, request.user)
-        serializer = MaintenanceReportSerializer(maintenance_report)
+        serializer = MaintenanceReportSerializer(maintenance_report, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):

@@ -17,7 +17,7 @@ class PartsListView(APIView):
 
     def get(self, request):
         parts = Part.objects.all().order_by('name')
-        serializer = PartSerializer(parts, many=True)
+        serializer = PartSerializer(parts, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -40,13 +40,13 @@ class PartDetailsView(APIView):
     def get(self, request, pk):
         part = self.get_object(pk)
         self.check_object_permissions(request, part)
-        serializer = PartSerializer(part)
+        serializer = PartSerializer(part, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):
         part = self.get_object(pk)
         self.check_object_permissions(request, part)
-        serializer = PartSerializer(part, data=request.data)
+        serializer = PartSerializer(part, data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_202_ACCEPTED)

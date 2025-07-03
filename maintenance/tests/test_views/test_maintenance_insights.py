@@ -40,8 +40,10 @@ class GeneralMaintenanceDataTests(APITestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user_profile = UserProfileFactory.create()
+        cls.other_user_profile = UserProfileFactory.create()
         cls.access_token = AccessToken.for_user(cls.user_profile.user)
         cls.parts = PartFactory.create_batch(size=5, profile=cls.user_profile)
+        cls.other_parts = PartFactory.create_batch(size=5, profile=cls.other_user_profile)
         cls.service_providers = ServiceProviderFactory.create_batch(size=5, profile=cls.user_profile)
         cls.parts_providers = PartsProviderFactory.create_batch(size=5, profile=cls.user_profile)
 
@@ -52,10 +54,13 @@ class GeneralMaintenanceDataTests(APITestCase):
         response = self.client.get(reverse("general-data"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         for key, items in (
-                ("parts", self.parts), ("service_providers", self.service_providers),
+                ("parts", [*self.parts, *self.other_parts]), ("service_providers", self.service_providers),
                 ("part_providers", self.parts_providers)):
             self.assertIn(key, response.data)
             self.assertEqual(len(response.data[key]), len(items))
+
+        for part in response.data['parts']:
+            print(part)
 
 
 class FleetWideOverviewViewTestCases(APITestCase):

@@ -20,7 +20,7 @@ class PartPurchaseEventDetailsView(APIView):
 
     def put(self, request, pk):
         part_purchase_event = self.get_object(pk, request.user)
-        serializer = PartPurchaseEventSerializer(part_purchase_event, data=request.data)
+        serializer = PartPurchaseEventSerializer(part_purchase_event, data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status.HTTP_202_ACCEPTED)
@@ -43,7 +43,7 @@ class ServiceProviderEventDetailsView(APIView):
 
     def put(self, request, pk):
         service_provider_event = self.get_object(pk, request.user)
-        serializer = ServiceProviderEventSerializer(service_provider_event, data=request.data)
+        serializer = ServiceProviderEventSerializer(service_provider_event, data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status.HTTP_202_ACCEPTED)
