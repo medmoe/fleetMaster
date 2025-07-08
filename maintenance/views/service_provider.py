@@ -14,7 +14,7 @@ class ServiceProviderListView(APIView):
 
     def get(self, request):
         providers = ServiceProvider.objects.all().order_by('name')
-        serializer = ServiceProviderSerializer(providers, many=True)
+        serializer = ServiceProviderSerializer(providers, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -37,13 +37,13 @@ class ServiceProviderDetailsView(APIView):
     def get(self, request, pk):
         provider = self.get_object(pk)
         self.check_object_permissions(request, provider)
-        serializer = ServiceProviderSerializer(provider)
+        serializer = ServiceProviderSerializer(provider, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request, pk):
         provider = self.get_object(pk)
         self.check_object_permissions(request, provider)
-        serializer = ServiceProviderSerializer(provider, data=request.data)
+        serializer = ServiceProviderSerializer(provider, data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
